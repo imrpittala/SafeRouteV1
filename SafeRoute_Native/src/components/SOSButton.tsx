@@ -7,7 +7,7 @@ import NetInfo from '@react-native-community/netinfo';
 
 const SOS_QUEUE_KEY = '@sos_queue';
 // UPDATED: Pointing to your computer's local network IP address
-const BACKEND_URL = 'http://172.20.10.7:8000/api/alerts/sos';
+const BACKEND_URL = 'http://192.168.50.17:8000/api/alerts/sos';
 
 export const SOSButton = () => {
     const { isSOSActive, triggerSOS, cancelSOS } = useAppStore();
