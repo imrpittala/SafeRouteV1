@@ -1,0 +1,24 @@
+{
+    "expo": {
+        "name": "SafeRoute",
+        "slug": "SafeRoute",
+        "version": "1.0.0",
+        "orientation": "portrait",
+        "userInterfaceStyle": "light",
+        "ios": {
+            "supportsTablet": true,
+            "config": {
+                "googleMapsApiKey": "GOOGLE_MAPS_API_KEY_PLACEHOLDER"
+            }
+        },
+        "android": {
+            "config": {
+                "googleMaps": {
+                    "apiKey": "GOOGLE_MAPS_API_KEY_PLACEHOLDER"
+                }
+            },
+            "package": "com.anonymous.SafeRoute"
+        },
+        "plugins": []
+    }
+}
