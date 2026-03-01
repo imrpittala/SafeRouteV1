@@ -8,7 +8,17 @@ from pydantic import BaseModel, Field
 
 # Initialize FastAPI App
 app = FastAPI(title="SafeRoute Backend", description="Real-time SOS alerting for SafeRoute.")
-
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173", 
+        "http://192.168.50.17:5173",
+        "http://127.0.0.1:5173"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 # 1. CORS Configuration
 # We need to allow the React Admin dashboard (running on localhost or Vercel) to hit this API
 app.add_middleware(

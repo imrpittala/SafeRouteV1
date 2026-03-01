@@ -51,11 +51,13 @@ export const MapScreen = () => {
 
 const styles = StyleSheet.create({
     container: {
-        ...StyleSheet.absoluteFillObject,
-        justifyContent: 'flex-end',
-        alignItems: 'center',
+        // SDK 55 Fabric Fix: Force the container to explicitly fill the screen via Flex
+        flex: 1,
+        backgroundColor: '#000', // Optional: Helps visualize if the map is misrendering
     },
     map: {
-        ...StyleSheet.absoluteFillObject,
+        // Force the map to fill its flex parent layout entirely
+        width: '100%',
+        height: '100%',
     },
 });

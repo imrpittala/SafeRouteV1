@@ -19,7 +19,9 @@ function App() {
 
   useEffect(() => {
     // Establish WebSocket connection to backend
-    const ws = new WebSocket('ws://localhost:8000/ws/admin');
+    // Use Vite environment variables with a fallback to localhost for safety
+    const wsUrl = import.meta.env.VITE_BACKEND_WS_URL || 'ws://localhost:8000/ws/admin';
+    const ws = new WebSocket(wsUrl);
 
     ws.onmessage = (event) => {
       try {

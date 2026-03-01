@@ -12,13 +12,22 @@
             }
         },
         "android": {
+            "package": "com.anonymous.SafeRoute",
             "config": {
                 "googleMaps": {
                     "apiKey": "GOOGLE_MAPS_API_KEY_PLACEHOLDER"
                 }
-            },
-            "package": "com.anonymous.SafeRoute"
+            }
         },
-        "plugins": []
+        "plugins": [
+            [
+                "expo-build-properties",
+                {
+                    "android": {
+                        "useLegacyPackaging": true
+                    }
+                }
+            ]
+        ]
     }
 }
