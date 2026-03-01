@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SafeRoute Admin - WebSocket Test</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background-color: #f4f4f9; color: #333; }
+        .container { background: white; padding: 20px; border-radius: 8px; max-width: 600px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        ul { list-style-type: none; padding: 0; }
+        li { background: #e0f2fe; padding: 10px; margin-bottom: 5px; border-radius: 4px; font-family: monospace; white-space: pre-wrap; word-break: break-all;}
+        .status { color: #0284c7; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>SafeRoute Admin Display</h1>
+        <p>This simulates the React dashboard being connected to the WebSocket.</p>
+        <hr>
+        <ul id="messages"></ul>
+    </div>
+    <script>
+        var ws = new WebSocket("ws://localhost:8000/ws/admin");
+        var messages = document.getElementById('messages');
+
+        ws.onopen = function() {
+            messages.innerHTML += "<li class='status'>🟢 Connected to Server! Waiting for SOS alerts...</li>";
+        };
+
+        ws.onmessage = function(event) {
+            var message = document.createElement('li');
+            
+            // Format the JSON nicely
+            var data = JSON.parse(event.data);
+            message.innerHTML = "🚨 <strong>SOS TRIGGERED:</strong><br>" + JSON.stringify(data, null, 2);
+            
+            messages.appendChild(message);
+        };
+
+        ws.onclose = function() {
+            messages.innerHTML += "<li style='background-color: #fee2e2; color: #991b1b;'>🔴 Disconnected from Server.</li>";
+        };
+    </script>
+</body>
+</html>
