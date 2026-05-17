@@ -27,6 +27,13 @@
                         "useLegacyPackaging": true
                     }
                 }
+            ],
+            [
+                "@rnmapbox/maps",
+                {
+                    "RNMapboxMapsImpl": "mapbox",
+                    "RNMapboxMapsDownloadToken": "MAPBOX_DOWNLOADS_TOKEN_PLACEHOLDER"
+                }
             ]
         ]
     }

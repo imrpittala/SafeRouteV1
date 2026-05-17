@@ -1,0 +1,50 @@
+import { create } from 'zustand';
+
+export interface SOSAlert {
+  userId: string;
+  location: { lat: number; lng: number };
+  timestamp: string;
+  type: string;
+  status: 'active' | 'resolved';
+}
+
+interface SystemState {
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
+  systemStatus: 'healthy' | 'warning' | 'critical';
+  setSystemStatus: (status: 'healthy' | 'warning' | 'critical') => void;
+  alerts: SOSAlert[];
+  addAlert: (alert: SOSAlert) => void;
+  resolveAlert: (userId: string, timestamp: string) => void;
+  isSidebarOpen: boolean;
+  toggleSidebar: () => void;
+  focusedLocation: { lat: number; lng: number } | null;
+  setFocusedLocation: (location: { lat: number; lng: number } | null) => void;
+}
+
+export const useStore = create<SystemState>((set) => ({
+  activeTab: 'dashboard',
+  setActiveTab: (tab) => set({ activeTab: tab }),
+  systemStatus: 'healthy',
+  setSystemStatus: (status) => set({ systemStatus: status }),
+  alerts: [],
+  addAlert: (alert) => set((state) => {
+    // Avoid duplicates if needed, but usually alerts are unique by timestamp
+    const newAlerts = [alert, ...state.alerts].slice(0, 50); // Keep last 50
+    return { 
+      alerts: newAlerts,
+      systemStatus: newAlerts.length > 0 ? 'warning' : 'healthy'
+    };
+  }),
+  resolveAlert: (userId, timestamp) => set((state) => {
+    const newAlerts = state.alerts.filter(a => !(a.userId === userId && a.timestamp === timestamp));
+    return { 
+      alerts: newAlerts,
+      systemStatus: newAlerts.length > 0 ? 'warning' : 'healthy'
+    };
+  }),
+  isSidebarOpen: true,
+  toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
+  focusedLocation: null,
+  setFocusedLocation: (location) => set({ focusedLocation: location }),
+}));

@@ -2,3 +2,15 @@ fastapi
 uvicorn
 pydantic
 websockets
+python-dotenv
+python-multipart
+passlib[bcrypt]
+numpy
+pandas
+pytest
+pytest-cov
+httpx
+pytest-asyncio
+osmnx
+networkx
+redis
