@@ -1,0 +1,78 @@
+import React from 'react';
+import { StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { AlertCircle } from 'lucide-react-native';
+import { COLORS } from '../../theme/theme';
+import { useStore } from '../../store/useStore';
+
+const BACKEND_WS = 'ws://192.168.29.99:8000/ws/sos';
+
+export const SOSButton = () => {
+  const { userLocation } = useStore();
+
+  const handleSOS = () => {
+    if (!userLocation) {
+      Alert.alert('Error', 'Location not available');
+      return;
+    }
+
+    Alert.alert(
+      'Broadcast SOS?',
+      'This will alert nearby users of your emergency.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'BROADCAST', 
+          onPress: sendSOS,
+          style: 'destructive'
+        },
+      ]
+    );
+  };
+
+  const sendSOS = () => {
+    try {
+      const ws = new WebSocket(BACKEND_WS);
+      ws.onopen = () => {
+        ws.send(JSON.stringify({
+          type: 'sos_alert',
+          location: userLocation,
+          timestamp: new Date().toISOString(),
+        }));
+        ws.close();
+        Alert.alert('Success', 'Emergency broadcast sent.');
+      };
+      ws.onerror = (e) => {
+        console.error('WS Error:', e);
+        Alert.alert('Error', 'Could not connect to safety network.');
+      };
+    } catch (error) {
+      console.error('SOS Error:', error);
+    }
+  };
+
+  return (
+    <TouchableOpacity style={styles.button} onPress={handleSOS}>
+      <AlertCircle color="#FFF" size={32} />
+    </TouchableOpacity>
+  );
+};
+
+const styles = StyleSheet.create({
+  button: {
+    position: 'absolute',
+    bottom: 120,
+    right: 20,
+    backgroundColor: COLORS.danger,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: COLORS.danger,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 10,
+    zIndex: 100,
+  },
+});

@@ -4,10 +4,11 @@ import { useAppStore } from '../store/useAppStore';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
+import * as Location from 'expo-location';
 
 const SOS_QUEUE_KEY = '@sos_queue';
 // UPDATED: Pointing to your computer's local network IP address
-const BACKEND_URL = 'http://192.168.50.17:8000/api/alerts/sos';
+const BACKEND_URL = 'http://192.168.29.99:8000/api/alerts/sos';
 
 export const SOSButton = () => {
     const { isSOSActive, triggerSOS, cancelSOS } = useAppStore();
@@ -54,10 +55,20 @@ export const SOSButton = () => {
 
     // Core SOS trigger logic handling online vs offline routing
     const sendSOSAlert = async () => {
+        let currentLat = 12.9716;
+        let currentLng = 77.5946;
+        try {
+            let location = await Location.getCurrentPositionAsync({});
+            currentLat = location.coords.latitude;
+            currentLng = location.coords.longitude;
+        } catch (e) {
+            console.log("Could not fetch precise location for SOS. Using fallback.");
+        }
+
         // Construct the standard payload
         const payload = {
             userId: "user-123", // Example userId
-            location: { lat: 12.9716, lng: 77.5946 }, // Example coordinates
+            location: { lat: currentLat, lng: currentLng },
             timestamp: new Date().toISOString(),
             type: "SOS"
         };
