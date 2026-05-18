@@ -20,9 +20,7 @@ export const SearchBar = () => {
     }
 
     try {
-      // Bounding Box to restrict search inside active Hyderabad/Kukatpally graph limits (minLng, minLat, maxLng, maxLat)
-      const KUKATPALLY_BBOX = '78.3600,17.4500,78.4400,17.5200';
-      let url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(text)}.json?access_token=${MAPBOX_TOKEN}&autocomplete=true&country=in&bbox=${KUKATPALLY_BBOX}&limit=5`;
+      let url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(text)}.json?access_token=${MAPBOX_TOKEN}&autocomplete=true&country=in&limit=5`;
       
       // Prioritize results near the user if location is available
       if (userLocation) {
@@ -124,11 +122,6 @@ export const SearchBar = () => {
           </View>
         </TouchableOpacity>
       </View>
-      {isFocused && (
-        <View style={styles.badgeContainer}>
-          <Text style={styles.badgeText}>🛡️ KUKATPALLY ACTIVE SAFETY ZONE</Text>
-        </View>
-      )}
       {results.length > 0 && (
         <View style={styles.resultsContainer}>
           <FlatList
@@ -297,25 +290,5 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontSize: 14,
     flex: 1,
-  },
-  badgeContainer: {
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    alignSelf: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 12,
-    marginTop: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.3)',
-    shadowColor: '#10b981',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-  },
-  badgeText: {
-    color: '#10b981',
-    fontSize: 9,
-    fontWeight: 'bold',
-    letterSpacing: 1.5,
   },
 });
