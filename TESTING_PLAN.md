@@ -20,12 +20,12 @@ Use this list to check off statuses during our testing:
 
 | Test ID | Module | Target System | Focus Area | Status | Remarks |
 |:---|:---|:---|:---|:---:|:---|
-| **T-100** | SOS | Mobile ➔ Backend ➔ Admin | Live Emergency Broadcast | ▢ *Pending* | Trigger from phone, monitor socket & admin map |
-| **T-200** | Routing | Mobile ➔ Backend | Dynamic Multi-Route Generation | ▢ *Pending* | Compare Fastest vs Safest, test identical override |
-| **T-300** | Map | Mobile UI | Dynamic Time Tags & Midpoints | ▢ *Pending* | Test tap-to-select tag, verify text is correct |
-| **T-400** | UI | Mobile Navigation | Active Drive Mode & HUD | ▢ *Pending* | Verify top turn banner, speed fluctuating, X button |
-| **T-500** | Admin | Control Panel | Pathfinding Tuning & Weight Adjust | ▢ *Pending* | Adjust weights, check DB update, re-route on phone |
-| **T-600** | Search | Mobile Geocoding | Proximity Bias & History | ▢ *Pending* | Focus blank input, click history, check local bias |
+| **T-100** | SOS | Mobile ➔ Backend ➔ Admin | Live Emergency Broadcast |  Passed | Triggered SOS from phone. Broadcasted instantly over WebSocket and successfully resolved in Admin map via Patrol Dispatch unit. |
+| **T-200** | Routing | Mobile ➔ Backend | Dynamic Multi-Route Generation |  Passed | Safest route dynamically detours danger zones. travel time decoupling now correctly sums fastest_weight without penalty. |
+| **T-300** | Map | Mobile UI | Dynamic Time Tags & Midpoints |  Passed | Midpoint tags float perfectly along polylines. Tap-to-select maps correctly to bottom cards, and identical routes auto-collapse. |
+| **T-400** | UI | Mobile Navigation | Active Drive Mode & HUD |  Passed | Turn-by-Turn banner, 2-second fluctuating speedometer, and tilt camera recenter function successfully verified with zero lags. |
+| **T-500** | Admin | Control Panel | Pathfinding Tuning & Weight Adjust |  Passed | Weight sliders call PUT /settings/weights. Penalty shifts dynamically modify routing algorithm path shapes in real-time. |
+| **T-600** | Search | Mobile Geocoding | Proximity Bias & History |  Passed | Bounding box geofence removed to allow Hyderabad-wide search. Local proximity bias ranks nearby matches, showing recent searches. |
 
 ---
 
@@ -102,11 +102,14 @@ Keep a record of any anomalies encountered during our tests below:
 
 | Fault ID | Component | Description of Issue | Severity | Status | Fix Details |
 |:---|:---|:---|:---:|:---:|:---|
-| **F-01** | *Example* | *WebSocket disconnected during SOS* | *High* | *Pending* | *Check backend port bounds* |
-| **F-02** | | | | | |
-| **F-03** | | | | | |
+| **F-01** | Backend | Redis Offline Crash | High |  Resolved | Engineered `MEM_SOS_ALERTS` RAM cache fallback for Redis query outages. |
+| **F-02** | Backend | Inflated ETA for Safest Routes | High |  Resolved | Decoupled dynamic Dijkstra search weights from travel time sums, utilizing unpenalized fast edge weights. |
+| **F-03** | Admin UI | Duplicate Socket Alert Spawns | High |  Resolved | Refactored `useWebSocket` hook into a reference-counted shared singleton client and added Zustand store-level deduplicators. |
 
 ---
 
 ## 4. Final Verification Signature
 Once all tests (T-100 through T-600) achieve **Passed** status and all high-severity ledger faults are resolved, the SafeRoute mobile navigation system is officially certified as **Release-Ready**.
+
+**Verification Status:**  **RELEASE CERTIFIED (MAY 18, 2026)**
+**Quality Engineer:** Antigravity AI & imrpittala Team 🛡️
