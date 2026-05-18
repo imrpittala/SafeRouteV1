@@ -29,7 +29,14 @@ export const useStore = create<SystemState>((set) => ({
   setSystemStatus: (status) => set({ systemStatus: status }),
   alerts: [],
   addAlert: (alert) => set((state) => {
-    // Avoid duplicates if needed, but usually alerts are unique by timestamp
+    // Check if we already have this alert or a very recent alert from this user within 5 seconds
+    const isDuplicate = state.alerts.some(a => 
+      a.userId === alert.userId && 
+      Math.abs(new Date(a.timestamp).getTime() - new Date(alert.timestamp).getTime()) < 5000
+    );
+    
+    if (isDuplicate) return state;
+
     const newAlerts = [alert, ...state.alerts].slice(0, 50); // Keep last 50
     return { 
       alerts: newAlerts,

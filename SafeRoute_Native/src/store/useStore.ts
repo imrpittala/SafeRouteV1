@@ -32,7 +32,11 @@ export const useStore = create<MapState>((set) => ({
   setDestination: (location) => set({ destination: location }),
   setActiveRoute: (route) => set({ activeRoute: route }),
   setRoutes: (routes) => set({ routes }),
-  addSosAlert: (alert) => set((state) => ({ sosAlerts: [...state.sosAlerts, alert] })),
+  addSosAlert: (alert) => set((state) => {
+    const isDuplicate = state.sosAlerts.some((a) => a.id === alert.id);
+    if (isDuplicate) return state;
+    return { sosAlerts: [...state.sosAlerts, alert] };
+  }),
   isLoading: false,
   setIsLoading: (loading) => set({ isLoading: loading }),
   isNavigating: false,
