@@ -304,7 +304,8 @@ async def websocket_sos(websocket: WebSocket):
                 logger.error(f"Error processing WS payload: {e}")
                 # Optional: send error back to client
                 pass
-    except WebSocketDisconnect:
+    except (WebSocketDisconnect, RuntimeError) as e:
+        logger.info(f"WebSocket connection closed cleanly: {e}")
         manager.disconnect(websocket)
 
 @app.get("/system/health")
