@@ -43,9 +43,13 @@ This document details the complete overhaul, stabilization, and feature implemen
 ---
 
 ## Technical Files Modified
-*   `SafeRoute_Native/src/store/useStore.ts`: Added state for `recentSearches`, `isNavigating`, and search history manipulation actions.
+*   `SafeRoute_Native/src/store/useStore.ts`: Added state for `recentSearches`, `isNavigating`, and client-side `sosAlerts` deduplication checks.
 *   `SafeRoute_Native/src/components/Map/SafeMapView.tsx`: Refactored tracking mode camera, recenter button zoom, floating time tags, and native string-mode map properties.
-*   `SafeRoute_Native/src/components/UI/SearchBar.tsx`: Built the Google Maps pill design, search clearing, geocoding proximity bias, and recent search display logic.
+*   `SafeRoute_Native/src/components/UI/SearchBar.tsx`: Built the Google Maps pill design, search clearing, geocoding proximity bias, and recent search display logic. Reverted geofence restrictions to support unrestricted geocoding.
 *   `SafeRoute_Native/src/components/UI/RouteDetails.tsx`: Implemented custom sliding bottom card, active turn-by-turn banner, speedometer telemetry, and Mappls-style navigation controls.
 *   `SafeRoute_Native/src/components/UI/SOSButton.tsx`: Resized the button for better screen space and synced its absolute positioning with the recenter button.
 *   `SafeRoute_Native/App.tsx`: Wired up layout conditional rendering to support route previews, navigation transitions, and search history states.
+*   `SafeRoute_Backend/main.py`: Upgraded pre-load road graph radius to 12km Hyderabad network, decoupled dynamic Dijkstra penalty costs from returned drive ETAs.
+*   `SafeRoute_Admin/src/components/MapView.tsx`: Engineered tactical Patrol Dispatch marker tracking, real-time driving animations, and status ticker indicators.
+*   `SafeRoute_Admin/src/hooks/useWebSocket.ts`: Refactored client listener hook to a reference-counted shared singleton.
+*   `SafeRoute_Admin/src/store/useStore.ts`: Implemented store-level 5-second alert duplicate filtering.
