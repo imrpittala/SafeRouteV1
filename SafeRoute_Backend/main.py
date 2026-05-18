@@ -62,6 +62,9 @@ class SOSAlert(BaseModel):
 SOS_TTL = 3600
 DANGER_PENALTY = 1000.0
 
+# In-memory fallback database for SOS alerts in case Redis is offline
+MEM_SOS_ALERTS = {} # userId -> {"lat": float, "lng": float, "timestamp": datetime}
+
 @app.put("/settings/weights")
 async def update_weights(penalty: float):
     global DANGER_PENALTY
@@ -74,27 +77,54 @@ async def get_weights():
     return {"danger_penalty": DANGER_PENALTY}
 
 async def add_active_sos(user_id: str, lat: float, lng: float):
+    # Always cache in local RAM first as our fail-safe fallback
+    MEM_SOS_ALERTS[user_id] = {
+        "lat": lat,
+        "lng": lng,
+        "timestamp": datetime.utcnow()
+    }
+    
     if redis_client is None:
         return
-    await redis_client.geoadd("sos_alerts", (lng, lat, user_id))
-    await redis_client.setex(f"sos_ttl:{user_id}", SOS_TTL, "active")
+    try:
+        await redis_client.geoadd("sos_alerts", (lng, lat, user_id))
+        await redis_client.setex(f"sos_ttl:{user_id}", SOS_TTL, "active")
+    except Exception as e:
+        logger.error(f"Redis geoadd failed. Falling back to RAM cache. Error: {e}")
 
 async def get_nearby_sos(lat: float, lng: float, radius_km: float = 2.0) -> List[str]:
-    if redis_client is None:
-        return []
+    # Clean up expired alerts from RAM cache
+    now = datetime.utcnow()
+    expired = [uid for uid, alert in MEM_SOS_ALERTS.items() if (now - alert["timestamp"]).total_seconds() > SOS_TTL]
+    for uid in expired:
+        del MEM_SOS_ALERTS[uid]
+        
     try:
-        members = await redis_client.georadius("sos_alerts", lng, lat, radius_km, unit='km')
-        active_members = []
-        for member in members:
-            is_active = await redis_client.exists(f"sos_ttl:{member}")
-            if is_active:
-                active_members.append(member)
-            else:
-                await redis_client.zrem("sos_alerts", member)
-        return active_members
+        if redis_client is not None:
+            members = await redis_client.georadius("sos_alerts", lng, lat, radius_km, unit='km')
+            active_members = []
+            for member in members:
+                try:
+                    is_active = await redis_client.exists(f"sos_ttl:{member}")
+                    if is_active:
+                        active_members.append(member)
+                    else:
+                        await redis_client.zrem("sos_alerts", member)
+                except Exception as inner_err:
+                    # If redis connection broke mid-loop, use RAM cache presence
+                    if member in MEM_SOS_ALERTS:
+                        active_members.append(member)
+            return active_members
     except Exception as e:
-        logger.error(f"Redis georadius error: {e}")
-        return []
+        logger.error(f"Redis georadius failed. Querying RAM cache instead. Error: {e}")
+
+    # Fallback RAM-based geofence query
+    active_members = []
+    for uid, alert in MEM_SOS_ALERTS.items():
+        dist = haversine(lat, lng, alert["lat"], alert["lng"]) / 1000.0 # in km
+        if dist <= radius_km:
+            active_members.append(uid)
+    return active_members
 
 import heapq
 
@@ -184,11 +214,17 @@ async def get_routes(start_lat: float, start_lng: float, end_lat: float, end_lng
     nearby_sos_users = await get_nearby_sos(mid_lat, mid_lng, radius_km=10.0)
     
     active_sos_points = []
-    if redis_client is not None:
-        for user_id in nearby_sos_users:
-            pos = await redis_client.geopos("sos_alerts", user_id)
-            if pos and pos[0]:
-                active_sos_points.append((pos[0][1], pos[0][0])) # lat, lng
+    for user_id in nearby_sos_users:
+        if user_id in MEM_SOS_ALERTS:
+            # High priority read from local RAM
+            active_sos_points.append((MEM_SOS_ALERTS[user_id]["lat"], MEM_SOS_ALERTS[user_id]["lng"]))
+        elif redis_client is not None:
+            try:
+                pos = await redis_client.geopos("sos_alerts", user_id)
+                if pos and pos[0]:
+                    active_sos_points.append((pos[0][1], pos[0][0])) # lat, lng
+            except Exception as e:
+                logger.error(f"Redis geopos retrieval failed: {e}")
                 
     safest_func = create_safest_weight_func(active_sos_points)
     safest_path, safest_weight_val = custom_dijkstra(G, source, target, safest_func)
