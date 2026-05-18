@@ -22,9 +22,9 @@ async def lifespan(app: FastAPI):
     global G, redis_client
     logger.info("Initializing Graph with OSMnx...")
     try:
-        # Small bounding box to avoid memory crash
+        # Expanded bounding box to cover Kukatpally, Madhapur, Gachibowli, and core tech hubs (12km radius)
         point = (17.4849, 78.4026) # Hyderabad (Kukatpally)
-        G = ox.graph_from_point(point, dist=5000, network_type='drive')
+        G = ox.graph_from_point(point, dist=12000, network_type='drive')
         logger.info(f"Graph initialized with {len(G.nodes)} nodes.")
     except Exception as e:
         logger.error(f"Error initializing graph: {e}")
