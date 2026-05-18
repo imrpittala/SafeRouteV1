@@ -229,6 +229,19 @@ async def get_routes(start_lat: float, start_lng: float, end_lat: float, end_lng
     safest_func = create_safest_weight_func(active_sos_points)
     safest_path, safest_weight_val = custom_dijkstra(G, source, target, safest_func)
     
+    # Calculate the actual physical travel time (unpenalized) of the safest path
+    safest_real_weight_val = 0.0
+    if safest_path:
+        for i in range(len(safest_path) - 1):
+            u = safest_path[i]
+            v = safest_path[i+1]
+            d = G.get_edge_data(u, v)
+            if d:
+                first_edge = list(d.values())[0]
+                safest_real_weight_val += fastest_weight(u, v, first_edge)
+    else:
+        safest_real_weight_val = safest_weight_val
+
     def path_to_feature(path, weight_val):
         if not path:
             return None
@@ -258,7 +271,7 @@ async def get_routes(start_lat: float, start_lng: float, end_lat: float, end_lng
 
     return {
         "fastest_route": path_to_feature(fastest_path, fastest_weight_val),
-        "safest_route": path_to_feature(safest_path, safest_weight_val)
+        "safest_route": path_to_feature(safest_path, safest_real_weight_val)
     }
 
 class ConnectionManager:
