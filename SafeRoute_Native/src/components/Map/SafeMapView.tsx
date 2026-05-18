@@ -41,21 +41,44 @@ export const SafeMapView = () => {
     };
     requestLocationPermission();
 
-    const ws = new WebSocket(BACKEND_WS);
-    ws.onmessage = (e) => {
-      try {
-        const data = JSON.parse(e.data);
-        if (data.type === 'SOS') {
-          addSosAlert({ 
-            id: data.userId, 
-            location: [data.location.lng, data.location.lat] 
-          });
+    let ws: WebSocket | null = null;
+    let reconnectTimeout: NodeJS.Timeout;
+
+    const connectWS = () => {
+      console.log('Connecting mobile map listener to WS:', BACKEND_WS);
+      ws = new WebSocket(BACKEND_WS);
+
+      ws.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          if (data.type === 'SOS') {
+            addSosAlert({ 
+              id: data.userId, 
+              location: [data.location.lng, data.location.lat] 
+            });
+          }
+        } catch (err) {
+          console.error('Failed to parse map WS message:', err);
         }
-      } catch (err) {
-        console.error('Failed to parse map WS message:', err);
-      }
+      };
+
+      ws.onclose = () => {
+        console.log('Mobile map WS disconnected. Retrying connection in 5s...');
+        reconnectTimeout = setTimeout(connectWS, 5000);
+      };
+
+      ws.onerror = (err) => {
+        console.error('Mobile map WS error:', err);
+        ws?.close();
+      };
     };
-    return () => ws.close();
+
+    connectWS();
+
+    return () => {
+      if (ws) ws.close();
+      clearTimeout(reconnectTimeout);
+    };
   }, []);
 
   useEffect(() => {
