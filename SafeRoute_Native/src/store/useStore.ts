@@ -14,6 +14,12 @@ interface MapState {
   setActiveRoute: (route: 'fastest' | 'safest') => void;
   setRoutes: (routes: { fastest: any; safest: any } | null) => void;
   addSosAlert: (alert: { id: string; location: [number, number] }) => void;
+  isLoading: boolean;
+  setIsLoading: (loading: boolean) => void;
+  isNavigating: boolean;
+  setIsNavigating: (navigating: boolean) => void;
+  recentSearches: { id: string; place_name: string; center: [number, number] }[];
+  addRecentSearch: (search: { id: string; place_name: string; center: [number, number] }) => void;
 }
 
 export const useStore = create<MapState>((set) => ({
@@ -27,4 +33,14 @@ export const useStore = create<MapState>((set) => ({
   setActiveRoute: (route) => set({ activeRoute: route }),
   setRoutes: (routes) => set({ routes }),
   addSosAlert: (alert) => set((state) => ({ sosAlerts: [...state.sosAlerts, alert] })),
+  isLoading: false,
+  setIsLoading: (loading) => set({ isLoading: loading }),
+  isNavigating: false,
+  setIsNavigating: (navigating) => set({ isNavigating: navigating }),
+  recentSearches: [],
+  addRecentSearch: (search) => set((state) => {
+    // Keep only unique searches, max 2
+    const filtered = state.recentSearches.filter(s => s.id !== search.id);
+    return { recentSearches: [search, ...filtered].slice(0, 2) };
+  }),
 }));
