@@ -6,7 +6,7 @@ export const useWebSocket = () => {
   const socketRef = useRef<WebSocket | null>(null);
   
   useEffect(() => {
-    const wsUrl = import.meta.env.VITE_BACKEND_WS_URL || 'ws://localhost:8000/ws/admin';
+    const wsUrl = import.meta.env.VITE_BACKEND_WS_URL || 'ws://localhost:8000/ws/sos';
     
     const connect = () => {
       console.log('Connecting to WebSocket:', wsUrl);
