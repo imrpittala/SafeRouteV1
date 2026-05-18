@@ -1,16 +1,18 @@
 import { StatusBar } from 'expo-status-bar';
-import React from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, View, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeMapView } from './src/components/Map/SafeMapView';
 import { SearchBar } from './src/components/UI/SearchBar';
 import { RouteDetails } from './src/components/UI/RouteDetails';
 import { SOSButton } from './src/components/UI/SOSButton';
+import { SplashScreen } from './src/components/UI/SplashScreen';
 import { COLORS } from './src/theme/theme';
 import { useStore } from './src/store/useStore';
 
 export default function App() {
   const isNavigating = useStore((state) => state.isNavigating);
+  const [isAppReady, setIsAppReady] = useState(false);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -23,6 +25,9 @@ export default function App() {
       <View style={[StyleSheet.absoluteFillObject, { zIndex: 999, elevation: 999 }]} pointerEvents="box-none">
         <RouteDetails />
       </View>
+      {!isAppReady && (
+        <SplashScreen onFinish={() => setIsAppReady(true)} />
+      )}
     </GestureHandlerRootView>
   );
 }
