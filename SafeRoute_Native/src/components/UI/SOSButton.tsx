@@ -7,7 +7,7 @@ import { useStore } from '../../store/useStore';
 const BACKEND_WS = 'ws://192.168.29.99:8000/ws/sos';
 
 export const SOSButton = () => {
-  const { userLocation } = useStore();
+  const { userLocation, destination, isNavigating } = useStore();
 
   const handleSOS = () => {
     if (!userLocation) {
@@ -50,9 +50,15 @@ export const SOSButton = () => {
     }
   };
 
+  // Dynamic positioning to sit right above the Recenter button
+  const bottomPosition = (isNavigating ? 120 : destination ? 340 : 100) + 68;
+
   return (
-    <TouchableOpacity style={styles.button} onPress={handleSOS}>
-      <AlertCircle color="#FFF" size={32} />
+    <TouchableOpacity 
+      style={[styles.button, { bottom: bottomPosition }]} 
+      onPress={handleSOS}
+    >
+      <AlertCircle color="#FFF" size={24} />
     </TouchableOpacity>
   );
 };
@@ -60,12 +66,11 @@ export const SOSButton = () => {
 const styles = StyleSheet.create({
   button: {
     position: 'absolute',
-    bottom: 120,
     right: 20,
     backgroundColor: COLORS.danger,
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: COLORS.danger,

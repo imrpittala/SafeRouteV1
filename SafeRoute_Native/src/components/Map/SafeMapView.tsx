@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { StyleSheet, View, Platform, PermissionsAndroid } from 'react-native';
+import { StyleSheet, View, Platform, PermissionsAndroid, ActivityIndicator, TouchableOpacity, Text } from 'react-native';
 import Mapbox, { MapView, Camera, UserLocation, StyleURL, ShapeSource, LineLayer, PointAnnotation } from '@rnmapbox/maps';
+import { LocateFixed } from 'lucide-react-native';
 import { useStore } from '../../store/useStore';
-import { COLORS } from '../../theme/theme';
+import { COLORS, SPACING } from '../../theme/theme';
 import axios from 'axios';
 
 // Mapbox Token Initialization
@@ -14,7 +15,8 @@ const BACKEND_WS = 'ws://192.168.29.99:8000/ws/alerts';
 export const SafeMapView = () => {
   const { 
     userLocation, destination, setUserLocation, 
-    routes, setRoutes, activeRoute, sosAlerts, addSosAlert 
+    routes, setRoutes, activeRoute, sosAlerts, addSosAlert,
+    isLoading, setIsLoading, isNavigating
   } = useStore();
   const cameraRef = useRef<Camera>(null);
 
@@ -55,6 +57,7 @@ export const SafeMapView = () => {
   const fetchRoutes = async () => {
     if (!userLocation || !destination) return;
     
+    setIsLoading(true);
     try {
       const res = await axios.get(`${BACKEND_URL}/routes`, {
         params: {
@@ -83,6 +86,8 @@ export const SafeMapView = () => {
       );
     } catch (error) {
       console.error('Fetch routes error:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -90,6 +95,21 @@ export const SafeMapView = () => {
     const { longitude, latitude } = location.coords;
     setUserLocation([longitude, latitude]);
   };
+
+  const getMidpoint = (routeData: any) => {
+    if (!routeData?.geometry?.coordinates?.length) return null;
+    const coords = routeData.geometry.coordinates;
+    return coords[Math.floor(coords.length / 2)];
+  };
+
+  const getETA = (routeData: any) => {
+    if (!routeData?.properties?.weight) return '';
+    return `${Math.round(routeData.properties.weight / 60)} min`;
+  };
+
+  const fastestMid = getMidpoint(routes?.fastest);
+  const safestMid = getMidpoint(routes?.safest);
+  const isSameRoute = fastestMid && safestMid && fastestMid[0] === safestMid[0] && fastestMid[1] === safestMid[1];
 
   return (
     <View style={styles.container}>
@@ -101,10 +121,13 @@ export const SafeMapView = () => {
       >
         <Camera
           ref={cameraRef}
-          zoomLevel={15}
-          centerCoordinate={userLocation || [-74.0060, 40.7128]} // Default to NYC instead of ocean [0,0]
+          zoomLevel={isNavigating ? 18 : 15}
+          pitch={isNavigating ? 60 : 0}
+          centerCoordinate={userLocation || [-74.0060, 40.7128]}
           animationMode="flyTo"
-          animationDuration={2000}
+          animationDuration={1000}
+          followUserLocation={isNavigating ? true : undefined}
+          followUserMode={isNavigating ? "course" as any : undefined}
         />
 
         {routes?.fastest && (
@@ -138,6 +161,47 @@ export const SafeMapView = () => {
           </ShapeSource>
         )}
 
+        {/* Floating Time Tags for Routes (Only when not navigating) */}
+        {!isNavigating && fastestMid && (
+          <PointAnnotation
+            key="fastest-tag"
+            id="fastest-tag"
+            coordinate={fastestMid}
+          >
+            <TouchableOpacity 
+              style={[
+                styles.timeTag, 
+                activeRoute === 'fastest' ? styles.timeTagActiveFastest : styles.timeTagInactive
+              ]}
+              onPress={() => useStore.getState().setActiveRoute('fastest')}
+            >
+              <Text style={activeRoute === 'fastest' ? styles.timeTextActive : styles.timeTextInactive}>
+                {isSameRoute ? `${getETA(routes.fastest)} (Best)` : getETA(routes.fastest)}
+              </Text>
+            </TouchableOpacity>
+          </PointAnnotation>
+        )}
+
+        {!isNavigating && safestMid && !isSameRoute && (
+          <PointAnnotation
+            key="safest-tag"
+            id="safest-tag"
+            coordinate={safestMid}
+          >
+            <TouchableOpacity 
+              style={[
+                styles.timeTag, 
+                activeRoute === 'safest' ? styles.timeTagActiveSafest : styles.timeTagInactive
+              ]}
+              onPress={() => useStore.getState().setActiveRoute('safest')}
+            >
+              <Text style={activeRoute === 'safest' ? styles.timeTextActive : styles.timeTextInactive}>
+                {getETA(routes.safest)}
+              </Text>
+            </TouchableOpacity>
+          </PointAnnotation>
+        )}
+
         {sosAlerts.map((alert) => (
           <PointAnnotation
             key={alert.id}
@@ -156,6 +220,29 @@ export const SafeMapView = () => {
           showsUserHeadingIndicator={true}
         />
       </MapView>
+      
+      {/* Recenter Button */}
+      {userLocation && (
+        <TouchableOpacity 
+          style={[styles.recenterButton, isNavigating ? { bottom: 120 } : { bottom: destination ? 340 : 100 }]}
+          onPress={() => {
+            cameraRef.current?.setCamera({
+              centerCoordinate: userLocation,
+              zoomLevel: isNavigating ? 18 : 16,
+              pitch: isNavigating ? 60 : 0,
+              animationDuration: 1000,
+            });
+          }}
+        >
+          <LocateFixed color="#FFF" size={24} />
+        </TouchableOpacity>
+      )}
+
+      {isLoading && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+        </View>
+      )}
     </View>
   );
 };
@@ -183,5 +270,64 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.danger,
     borderWidth: 2,
     borderColor: '#FFF',
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 100,
+  },
+  recenterButton: {
+    position: 'absolute',
+    right: SPACING.md,
+    backgroundColor: COLORS.surface,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 10,
+    zIndex: 50,
+  },
+  timeTag: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  timeTagActiveFastest: {
+    backgroundColor: COLORS.secondary,
+    borderColor: '#FFF',
+    zIndex: 100,
+  },
+  timeTagActiveSafest: {
+    backgroundColor: COLORS.primary,
+    borderColor: '#FFF',
+    zIndex: 100,
+  },
+  timeTagInactive: {
+    backgroundColor: COLORS.surface,
+    borderColor: '#555',
+    zIndex: 50,
+  },
+  timeTextActive: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  timeTextInactive: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    fontWeight: 'bold',
   },
 });
