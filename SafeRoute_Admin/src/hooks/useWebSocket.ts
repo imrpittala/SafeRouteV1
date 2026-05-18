@@ -63,8 +63,8 @@ export const useWebSocket = () => {
     const mockAlert: SOSAlert = {
       userId: `user_${Math.floor(Math.random() * 1000)}`,
       location: {
-        lat: 40.7128 + (Math.random() - 0.5) * 0.1,
-        lng: -74.0060 + (Math.random() - 0.5) * 0.1,
+        lat: 17.4849 + (Math.random() - 0.5) * 0.03, // Center around Kukatpally, Hyderabad
+        lng: 78.4026 + (Math.random() - 0.5) * 0.03,
       },
       timestamp: new Date().toISOString(),
       type: 'SOS',

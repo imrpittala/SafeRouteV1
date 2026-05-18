@@ -28,8 +28,8 @@ const MapView: React.FC = () => {
         ref={mapRef}
         mapboxAccessToken={mapboxToken}
         initialViewState={{
-          longitude: -74.006,
-          latitude: 40.7128,
+          longitude: 78.4026,
+          latitude: 17.4849,
           zoom: 12
         }}
         style={{ width: '100%', height: '100%' }}

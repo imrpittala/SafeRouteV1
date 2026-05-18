@@ -8,8 +8,10 @@ const BACKEND_WS = 'ws://192.168.29.99:8000/ws/sos';
 
 export const SOSButton = () => {
   const { userLocation, destination, isNavigating } = useStore();
+  const [isSending, setIsSending] = React.useState(false);
 
   const handleSOS = () => {
+    if (isSending) return;
     if (!userLocation) {
       Alert.alert('Error', 'Location not available');
       return;
@@ -30,6 +32,7 @@ export const SOSButton = () => {
   };
 
   const sendSOS = () => {
+    setIsSending(true);
     try {
       const ws = new WebSocket(BACKEND_WS);
       ws.onopen = () => {
@@ -41,15 +44,18 @@ export const SOSButton = () => {
         }));
         setTimeout(() => {
           ws.close();
+          setIsSending(false);
         }, 1000);
         Alert.alert('Success', 'Emergency broadcast sent.');
       };
       ws.onerror = (e) => {
         console.error('WS Error:', e);
         Alert.alert('Error', 'Could not connect to safety network.');
+        setIsSending(false);
       };
     } catch (error) {
       console.error('SOS Error:', error);
+      setIsSending(false);
     }
   };
 
