@@ -5,12 +5,15 @@ import { LocateFixed } from 'lucide-react-native';
 import { useStore } from '../../store/useStore';
 import { COLORS, SPACING } from '../../theme/theme';
 import axios from 'axios';
+import { MOCK_ROUTES } from './mockRouteData';
+
+const USE_MOCK = false; // Set to false to connect to your live FastAPI backend
 
 // Mapbox Token Initialization
 Mapbox.setAccessToken('MAPBOX_PUBLIC_TOKEN_PLACEHOLDER');
 
 const BACKEND_URL = 'http://192.168.29.99:8000';
-const BACKEND_WS = 'ws://192.168.29.99:8000/ws/alerts';
+const BACKEND_WS = 'ws://192.168.29.99:8000/ws/sos';
 
 export const SafeMapView = () => {
   const { 
@@ -40,9 +43,16 @@ export const SafeMapView = () => {
 
     const ws = new WebSocket(BACKEND_WS);
     ws.onmessage = (e) => {
-      const data = JSON.parse(e.data);
-      if (data.type === 'sos') {
-        addSosAlert({ id: data.id, location: data.location });
+      try {
+        const data = JSON.parse(e.data);
+        if (data.type === 'SOS') {
+          addSosAlert({ 
+            id: data.userId, 
+            location: [data.location.lng, data.location.lat] 
+          });
+        }
+      } catch (err) {
+        console.error('Failed to parse map WS message:', err);
       }
     };
     return () => ws.close();
@@ -58,6 +68,21 @@ export const SafeMapView = () => {
     if (!userLocation || !destination) return;
     
     setIsLoading(true);
+    
+    if (USE_MOCK) {
+      setTimeout(() => {
+        setRoutes(MOCK_ROUTES);
+        cameraRef.current?.fitBounds(
+          userLocation,
+          destination,
+          [50, 50, 50, 50],
+          1000
+        );
+        setIsLoading(false);
+      }, 500);
+      return;
+    }
+
     try {
       const res = await axios.get(`${BACKEND_URL}/routes`, {
         params: {
@@ -176,7 +201,7 @@ export const SafeMapView = () => {
               onPress={() => useStore.getState().setActiveRoute('fastest')}
             >
               <Text style={activeRoute === 'fastest' ? styles.timeTextActive : styles.timeTextInactive}>
-                {isSameRoute ? `${getETA(routes.fastest)} (Best)` : getETA(routes.fastest)}
+                {isSameRoute ? `${getETA(routes?.fastest)} (Best)` : getETA(routes?.fastest)}
               </Text>
             </TouchableOpacity>
           </PointAnnotation>
@@ -196,7 +221,7 @@ export const SafeMapView = () => {
               onPress={() => useStore.getState().setActiveRoute('safest')}
             >
               <Text style={activeRoute === 'safest' ? styles.timeTextActive : styles.timeTextInactive}>
-                {getETA(routes.safest)}
+                {getETA(routes?.safest)}
               </Text>
             </TouchableOpacity>
           </PointAnnotation>

@@ -34,11 +34,14 @@ export const SOSButton = () => {
       const ws = new WebSocket(BACKEND_WS);
       ws.onopen = () => {
         ws.send(JSON.stringify({
-          type: 'sos_alert',
-          location: userLocation,
+          userId: 'user-' + Math.floor(Math.random() * 1000),
+          location: { lat: userLocation![1], lng: userLocation![0] }, // Convert [lng, lat] to { lat, lng }
           timestamp: new Date().toISOString(),
+          type: 'SOS',
         }));
-        ws.close();
+        setTimeout(() => {
+          ws.close();
+        }, 1000);
         Alert.alert('Success', 'Emergency broadcast sent.');
       };
       ws.onerror = (e) => {
