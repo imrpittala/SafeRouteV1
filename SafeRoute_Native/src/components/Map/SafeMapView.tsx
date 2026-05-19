@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View, Platform, PermissionsAndroid, ActivityIndicator, TouchableOpacity, Text } from 'react-native';
 import Mapbox, { MapView, Camera, UserLocation, StyleURL, ShapeSource, LineLayer, PointAnnotation } from '@rnmapbox/maps';
+
 import { LocateFixed } from 'lucide-react-native';
 import { useStore } from '../../store/useStore';
 import { COLORS, SPACING } from '../../theme/theme';
@@ -10,10 +11,11 @@ import { MOCK_ROUTES } from './mockRouteData';
 const USE_MOCK = false; // Set to false to connect to your live FastAPI backend
 
 // Mapbox Token Initialization
-Mapbox.setAccessToken('MAPBOX_PUBLIC_TOKEN_PLACEHOLDER');
+const mapboxToken = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN || 'MAPBOX_PUBLIC_TOKEN_PLACEHOLDER';
+Mapbox.setAccessToken(mapboxToken);
 
-const BACKEND_URL = 'http://192.168.29.99:8000';
-const BACKEND_WS = 'ws://192.168.29.99:8000/ws/sos';
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://192.168.29.99:8000';
+const BACKEND_WS = process.env.EXPO_PUBLIC_BACKEND_WS || 'ws://192.168.29.99:8000/ws/sos';
 
 export const SafeMapView = () => {
   const { 
@@ -107,13 +109,11 @@ export const SafeMapView = () => {
     }
 
     try {
-      const res = await axios.get(`${BACKEND_URL}/routes`, {
-        params: {
-          start_lng: userLocation[0],
-          start_lat: userLocation[1],
-          end_lng: destination[0],
-          end_lat: destination[1]
-        }
+      const res = await axios.post(`${BACKEND_URL}/api/routes/valhalla`, {
+        user_lat: userLocation[1],
+        user_lng: userLocation[0],
+        dest_lat: destination[1],
+        dest_lng: destination[0]
       });
       
       if (res.data.error) {
@@ -179,7 +179,7 @@ export const SafeMapView = () => {
         />
 
         {routes?.fastest && (
-          <ShapeSource id="fastestSource" shape={routes.fastest}>
+          <ShapeSource id="fastestSource" shape={routes.fastest} tolerance={10}>
             <LineLayer
               id="fastestLayer"
               style={{
@@ -194,7 +194,7 @@ export const SafeMapView = () => {
         )}
 
         {routes?.safest && (
-          <ShapeSource id="safestSource" shape={routes.safest}>
+          <ShapeSource id="safestSource" shape={routes.safest} tolerance={10}>
             <LineLayer
               id="safestLayer"
               style={{

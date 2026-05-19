@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:alpine
+    container_name: saferoute_redis
+    ports:
+      - "6379:6379"
+    restart: always
+
+  valhalla:
+    image: ghcr.io/gis-ops/docker-valhalla/valhalla:latest
+    container_name: saferoute_valhalla
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./valhalla_data:/custom_files
+    environment:
+      - valhalla_force_rebuild=false
+    restart: always
+
+  api:
+    build:
+      context: ./SafeRoute_Backend
+      dockerfile: Dockerfile
+    container_name: saferoute_api
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_HOST=redis
+      - VALHALLA_URL=http://valhalla:8002/route
+    depends_on:
+      - redis
+      - valhalla
+    restart: always
