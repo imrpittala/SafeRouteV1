@@ -2,7 +2,7 @@ import json
 from datetime import datetime
 from typing import List
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from contextlib import asynccontextmanager
@@ -10,6 +10,8 @@ import logging
 import osmnx as ox
 import networkx as nx
 import redis.asyncio as redis
+import httpx
+import polyline
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -58,6 +60,12 @@ class SOSAlert(BaseModel):
     location: Location
     timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat() + "Z")
     type: str = "SOS"
+
+class ValhallaRouteRequest(BaseModel):
+    user_lat: float
+    user_lng: float
+    dest_lat: float
+    dest_lng: float
 
 SOS_TTL = 3600
 DANGER_PENALTY = 1000.0
@@ -192,6 +200,91 @@ def custom_dijkstra(graph, source, target, weight_func):
                     heapq.heappush(queue, (distance, neighbor, path + [neighbor]))
                     
     return None, float('inf')
+
+def create_danger_polygon(lat: float, lng: float, radius_km: float = 0.2):
+    """
+    Creates a square bounding box around an SOS point.
+    Valhalla expects an array of [longitude, latitude] coordinates closing the polygon.
+    """
+    offset_lat = radius_km / 111.0 # 1 degree lat is approx 111 km
+    offset_lng = radius_km / (111.0 * math.cos(math.radians(lat)))
+    
+    return [
+        [lng - offset_lng, lat - offset_lat], # Bottom-Left
+        [lng + offset_lng, lat - offset_lat], # Bottom-Right
+        [lng + offset_lng, lat + offset_lat], # Top-Right
+        [lng - offset_lng, lat + offset_lat], # Top-Left
+        [lng - offset_lng, lat - offset_lat]  # Close polygon
+    ]
+
+@app.post("/api/routes/valhalla")
+async def get_valhalla_route(req: ValhallaRouteRequest):
+    # Determine the midpoint to find nearby SOS alerts
+    mid_lat = (req.user_lat + req.dest_lat) / 2
+    mid_lng = (req.user_lng + req.dest_lng) / 2
+    nearby_sos_users = await get_nearby_sos(mid_lat, mid_lng, radius_km=10.0)
+    
+    active_sos_points = []
+    for user_id in nearby_sos_users:
+        if user_id in MEM_SOS_ALERTS:
+            active_sos_points.append({"lat": MEM_SOS_ALERTS[user_id]["lat"], "lng": MEM_SOS_ALERTS[user_id]["lng"]})
+        elif redis_client is not None:
+            try:
+                pos = await redis_client.geopos("sos_alerts", user_id)
+                if pos and pos[0]:
+                    active_sos_points.append({"lat": pos[0][1], "lng": pos[0][0]})
+            except Exception as e:
+                logger.error(f"Redis geopos retrieval failed: {e}")
+                
+    avoid_polygons = []
+    for alert in active_sos_points:
+        danger_zone = create_danger_polygon(alert["lat"], alert["lng"], radius_km=0.3)
+        avoid_polygons.append(danger_zone)
+
+    valhalla_payload = {
+        "locations": [
+            {"lat": req.user_lat, "lon": req.user_lng, "type": "break"},
+            {"lat": req.dest_lat, "lon": req.dest_lng, "type": "break"}
+        ],
+        "costing": "auto",
+        "directions_options": {
+            "units": "kilometers"
+        },
+        "avoid_polygons": avoid_polygons
+    }
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "http://localhost:8002/route", 
+                json=valhalla_payload,
+                timeout=5.0
+            )
+            response.raise_for_status()
+            valhalla_data = response.json()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Valhalla Engine Error: {str(e)}")
+
+    trip = valhalla_data.get("trip", {})
+    if trip.get("status") != 0:
+        raise HTTPException(status_code=400, detail="Could not calculate route")
+
+    leg = trip["legs"][0]
+    
+    encoded_shape = leg["shape"]
+    decoded_coords = polyline.decode(encoded_shape, 6)
+    
+    # polyline.decode returns (lat, lng). Mapbox needs [lng, lat].
+    geojson_coords = [[lng, lat] for lat, lng in decoded_coords]
+
+    return {
+        "weight": trip["summary"]["time"],
+        "distance_meters": trip["summary"]["length"] * 1000,
+        "geometry": {
+            "type": "LineString",
+            "coordinates": geojson_coords
+        }
+    }
 
 @app.get("/routes")
 async def get_routes(start_lat: float, start_lng: float, end_lat: float, end_lng: float):

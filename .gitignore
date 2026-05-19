@@ -10,3 +10,4 @@ venv/
 
 # Secrets (Never upload API keys!)
 .env
+valhalla_data/
