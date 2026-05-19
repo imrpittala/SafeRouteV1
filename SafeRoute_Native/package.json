@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@gorhom/bottom-sheet": "^5.2.13",
+    "@mapbox/polyline": "^1.2.1",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/netinfo": "11.5.2",
     "@react-navigation/native": "^6.1.9",
@@ -36,6 +37,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.26.0",
+    "@types/mapbox__polyline": "^1.0.5",
     "@types/react": "~19.2.10",
     "typescript": "~5.9.2"
   },

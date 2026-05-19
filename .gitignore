@@ -5,9 +5,19 @@ node_modules/
 # Python
 __pycache__/
 *.pyc
+.venv/
 env/
 venv/
 
-# Secrets (Never upload API keys!)
-.env
+# Docker & GIS Map Data (Heavy Files)
 valhalla_data/
+*.osm.pbf
+valhalla_tiles.tar*
+*.tar.gz
+
+# Secrets & Environment Variables (Never upload real API keys!)
+.env
+.env.development
+.env.production
+.env.local
+.env.*.local

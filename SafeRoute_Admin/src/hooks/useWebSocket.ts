@@ -10,7 +10,7 @@ export const useWebSocket = () => {
   const { addAlert, setSystemStatus } = useStore();
 
   useEffect(() => {
-    const wsUrl = import.meta.env.VITE_BACKEND_WS_URL || 'ws://localhost:8000/ws/sos';
+    const wsUrl = import.meta.env.VITE_BACKEND_WS_URL || 'ws://127.0.0.1:8000/ws/sos';
 
     const handleMessage = (data: any) => {
       if (data.type === 'SOS') {

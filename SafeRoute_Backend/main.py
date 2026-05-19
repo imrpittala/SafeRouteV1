@@ -1,4 +1,5 @@
 import json
+import os
 from datetime import datetime
 from typing import List
 
@@ -33,8 +34,17 @@ async def lifespan(app: FastAPI):
         G = nx.MultiDiGraph() # Fallback
 
     if redis_client is None:
-        logger.info("Initializing Redis client...")
-        redis_client = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
+        redis_host = os.getenv("REDIS_HOST", "127.0.0.1")
+        logger.info(f"Initializing Redis client connecting to host: {redis_host}...")
+        redis_client = redis.Redis(
+            host=redis_host, 
+            port=6379, 
+            db=0, 
+            decode_responses=True,
+            socket_timeout=1.0,
+            socket_connect_timeout=1.0,
+            retry=None
+        )
     
     yield
     
@@ -241,49 +251,71 @@ async def get_valhalla_route(req: ValhallaRouteRequest):
         danger_zone = create_danger_polygon(alert["lat"], alert["lng"], radius_km=0.3)
         avoid_polygons.append(danger_zone)
 
-    valhalla_payload = {
+    base_payload = {
         "locations": [
             {"lat": req.user_lat, "lon": req.user_lng, "type": "break"},
             {"lat": req.dest_lat, "lon": req.dest_lng, "type": "break"}
         ],
         "costing": "auto",
+        "costing_options": {
+            "auto": {
+                "top_speed": 45,          # Maximum speed ceiling of 45 km/h for dense urban traffic
+                "maneuver_penalty": 15.0,  # Simulate turning & intersection stop delays (15s)
+                "gate_penalty": 30.0       # Simulate gate stop delays (30s)
+            }
+        },
         "directions_options": {
             "units": "kilometers"
         },
-        "avoid_polygons": avoid_polygons
+        "generalize": 100 # Engine-Level Simplification
     }
 
+    valhalla_url = os.getenv("VALHALLA_URL", "http://localhost:8002/route")
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.post(
-                "http://localhost:8002/route", 
-                json=valhalla_payload,
-                timeout=5.0
-            )
-            response.raise_for_status()
-            valhalla_data = response.json()
+            # 1. Fastest Route (No Avoidance)
+            fastest_payload = {**base_payload}
+            fastest_res = await client.post(valhalla_url, json=fastest_payload, timeout=5.0)
+            fastest_res.raise_for_status()
+            fastest_data = fastest_res.json()
+            
+            # 2. Safest Route (With Avoidance)
+            safest_payload = {**base_payload, "avoid_polygons": avoid_polygons} if avoid_polygons else fastest_payload
+            safest_res = await client.post(valhalla_url, json=safest_payload, timeout=5.0) if avoid_polygons else fastest_res
+            safest_res.raise_for_status()
+            safest_data = safest_res.json()
+            
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Valhalla Engine Error: {str(e)}")
 
-    trip = valhalla_data.get("trip", {})
-    if trip.get("status") != 0:
-        raise HTTPException(status_code=400, detail="Could not calculate route")
-
-    leg = trip["legs"][0]
-    
-    encoded_shape = leg["shape"]
-    decoded_coords = polyline.decode(encoded_shape, 6)
-    
-    # polyline.decode returns (lat, lng). Mapbox needs [lng, lat].
-    geojson_coords = [[lng, lat] for lat, lng in decoded_coords]
+    def parse_valhalla(data):
+        trip = data.get("trip", {})
+        if trip.get("status") != 0:
+            return None
+        leg = trip["legs"][0]
+        encoded_shape = leg["shape"]
+        decoded_coords = polyline.decode(encoded_shape, 6)
+        geojson_coords = [[lng, lat] for lat, lng in decoded_coords]
+        
+        # Manually apply global speed factor multiplier of 0.62 (speeds reduced by ~38%)
+        # Time = Distance / Speed. If speed is multiplied by 0.62, travel time is multiplied by 1 / 0.62 = 1.61
+        adjusted_weight = trip["summary"]["time"] * 1.61
+        
+        return {
+            "type": "Feature",
+            "geometry": {
+                "type": "LineString",
+                "coordinates": geojson_coords
+            },
+            "properties": {
+                "weight": adjusted_weight,
+                "distance_meters": trip["summary"]["length"] * 1000
+            }
+        }
 
     return {
-        "weight": trip["summary"]["time"],
-        "distance_meters": trip["summary"]["length"] * 1000,
-        "geometry": {
-            "type": "LineString",
-            "coordinates": geojson_coords
-        }
+        "fastest_route": parse_valhalla(fastest_data),
+        "safest_route": parse_valhalla(safest_data)
     }
 
 @app.get("/routes")
@@ -416,13 +448,19 @@ async def websocket_sos(websocket: WebSocket):
 
 @app.get("/system/health")
 async def get_system_health():
-    # Mock data for demonstration, in a real scenario this would query OS or Prometheus
+    redis_ok = False
+    if redis_client is not None:
+        try:
+            redis_ok = await redis_client.ping()
+        except Exception:
+            redis_ok = False
+            
     return {
         "status": "healthy",
         "cpu_usage": 24.5,
         "memory_usage": 1540, # MB
         "active_workers": 12,
-        "redis_connected": redis_client is not None,
+        "redis_connected": redis_ok,
         "graph_nodes": len(G.nodes) if G else 0,
         "uptime_seconds": 15600
     }
