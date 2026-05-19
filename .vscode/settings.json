@@ -2,5 +2,6 @@
     "java.configuration.updateBuildConfiguration": "interactive",
     "java.import.exclusions": [
         "**/node_modules/**"
-    ]
+    ],
+    "java.compile.nullAnalysis.mode": "automatic"
 }
