@@ -21,3 +21,14 @@ valhalla_tiles.tar*
 .env.production
 .env.local
 .env.*.local
+
+# Sensitive API keys
+.env
+.env.development
+.env.production
+
+# Heavy binary GIS/map data
+*.pbf
+*.tar
+valhalla_tiles/
+valhalla_tiles.tar
