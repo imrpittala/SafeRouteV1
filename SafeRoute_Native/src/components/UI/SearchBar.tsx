@@ -4,7 +4,7 @@ import { Menu, Mic, X, Clock, ArrowLeft, MoreVertical, Route } from 'lucide-reac
 import { COLORS, SPACING } from '../../theme/theme';
 import { useStore } from '../../store/useStore';
 
-const MAPBOX_TOKEN = 'MAPBOX_PUBLIC_TOKEN_PLACEHOLDER';
+const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN || 'MAPBOX_PUBLIC_TOKEN_PLACEHOLDER';
 
 export const SearchBar = () => {
   const [query, setQuery] = useState('');
