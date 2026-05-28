@@ -271,24 +271,38 @@ async def get_valhalla_route(req: ValhallaRouteRequest):
     }
 
     valhalla_url = os.getenv("VALHALLA_URL", "http://localhost:8002/route")
-    try:
-        async with httpx.AsyncClient() as client:
-            # 1. Fastest Route (No Avoidance)
+    
+    fastest_data = None
+    safest_data = None
+    route_blocked = False
+
+    async with httpx.AsyncClient() as client:
+        # 1. Fastest Route (No Avoidance)
+        try:
             fastest_payload = {**base_payload}
             fastest_res = await client.post(valhalla_url, json=fastest_payload, timeout=5.0)
             fastest_res.raise_for_status()
             fastest_data = fastest_res.json()
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Valhalla Engine Error (Fastest): {str(e)}")
             
-            # 2. Safest Route (With Avoidance)
-            safest_payload = {**base_payload, "avoid_polygons": avoid_polygons} if avoid_polygons else fastest_payload
-            safest_res = await client.post(valhalla_url, json=safest_payload, timeout=5.0) if avoid_polygons else fastest_res
-            safest_res.raise_for_status()
-            safest_data = safest_res.json()
-            
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Valhalla Engine Error: {str(e)}")
+        # 2. Safest Route (With Avoidance)
+        if avoid_polygons:
+            try:
+                safest_payload = {**base_payload, "avoid_polygons": avoid_polygons}
+                safest_res = await client.post(valhalla_url, json=safest_payload, timeout=5.0)
+                safest_res.raise_for_status()
+                safest_data = safest_res.json()
+            except Exception as e:
+                logger.warning(f"Safest route completely blocked by polygons or error: {e}")
+                safest_data = None
+                route_blocked = True
+        else:
+            safest_data = fastest_data
 
     def parse_valhalla(data):
+        if not data:
+            return None
         trip = data.get("trip", {})
         if trip.get("status") != 0:
             return None
@@ -315,7 +329,8 @@ async def get_valhalla_route(req: ValhallaRouteRequest):
 
     return {
         "fastest_route": parse_valhalla(fastest_data),
-        "safest_route": parse_valhalla(safest_data)
+        "safest_route": parse_valhalla(safest_data),
+        "route_blocked": route_blocked
     }
 
 @app.get("/routes")

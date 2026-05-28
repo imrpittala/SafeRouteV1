@@ -32,3 +32,6 @@ valhalla_tiles.tar*
 *.tar
 valhalla_tiles/
 valhalla_tiles.tar
+
+# Temporary Scratch Files
+scratch/
