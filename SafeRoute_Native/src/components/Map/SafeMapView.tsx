@@ -87,7 +87,7 @@ export const SafeMapView = () => {
     if (userLocation && destination) {
       fetchRoutes();
     }
-  }, [destination]);
+  }, [destination, sosAlerts]);
 
   const fetchRoutes = async () => {
     if (!userLocation || !destination) return;
