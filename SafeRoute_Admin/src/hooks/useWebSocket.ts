@@ -92,7 +92,7 @@ export const useWebSocket = () => {
 
   // For testing: Function to simulate an alert
   const simulateAlert = () => {
-    const mockAlert: SOSAlert = {
+    const mockAlert = {
       userId: `user_${Math.floor(Math.random() * 1000)}`,
       location: {
         lat: 17.4849 + (Math.random() - 0.5) * 0.03, // Center around Kukatpally, Hyderabad
@@ -102,7 +102,20 @@ export const useWebSocket = () => {
       type: 'SOS',
       status: 'active'
     };
-    addAlert(mockAlert);
+    
+    if (globalSocket && globalSocket.readyState === WebSocket.OPEN) {
+      globalSocket.send(JSON.stringify(mockAlert));
+      console.log('Broadcasted simulated SOS alert to safety network:', mockAlert);
+    } else {
+      console.warn('Shared WebSocket not open. Adding mock alert locally only.');
+      addAlert({
+        userId: mockAlert.userId,
+        location: mockAlert.location,
+        timestamp: mockAlert.timestamp,
+        type: 'SOS',
+        status: 'active'
+      });
+    }
   };
 
   return { simulateAlert };
