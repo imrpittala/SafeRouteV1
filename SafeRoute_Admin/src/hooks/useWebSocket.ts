@@ -115,8 +115,33 @@ export const useWebSocket = () => {
         type: 'SOS',
         status: 'active'
       });
+  // For testing: Function to simulate a custom coordinate alert
+  const triggerCustomAlert = (lat: number, lng: number) => {
+    const mockAlert = {
+      userId: `user_${Math.floor(Math.random() * 1000)}`,
+      location: {
+        lat: lat,
+        lng: lng,
+      },
+      timestamp: new Date().toISOString(),
+      type: 'SOS',
+      status: 'active'
+    };
+    
+    if (globalSocket && globalSocket.readyState === WebSocket.OPEN) {
+      globalSocket.send(JSON.stringify(mockAlert));
+      console.log('Broadcasted custom SOS alert to safety network:', mockAlert);
+    } else {
+      console.warn('Shared WebSocket not open. Adding custom mock alert locally.');
+      addAlert({
+        userId: mockAlert.userId,
+        location: mockAlert.location,
+        timestamp: mockAlert.timestamp,
+        type: 'SOS',
+        status: 'active'
+      });
     }
   };
 
-  return { simulateAlert };
+  return { simulateAlert, triggerCustomAlert };
 };

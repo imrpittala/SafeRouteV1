@@ -3,11 +3,13 @@ import Map, { Marker, NavigationControl, type MapRef } from 'react-map-gl/mapbox
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useStore } from '../store/useStore';
 import { AlertCircle, ShieldAlert } from 'lucide-react';
+import { useWebSocket } from '../hooks/useWebSocket';
 
 const MapView: React.FC = () => {
   const mapRef = useRef<MapRef>(null);
   const { alerts, focusedLocation, setFocusedLocation, resolveAlert } = useStore();
   const mapboxToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
+  const { triggerCustomAlert } = useWebSocket();
 
   // Active Patrol Responders State
   const [patrols, setPatrols] = useState<any[]>([]);
@@ -93,6 +95,12 @@ const MapView: React.FC = () => {
         style={{ width: '100%', height: '100%' }}
         mapStyle="mapbox://styles/mapbox/dark-v11"
         terrain={{ source: 'mapbox-dem', exaggeration: 1.5 }}
+        onClick={(e) => {
+          if (e.originalEvent.shiftKey) {
+            const { lng, lat } = e.lngLat;
+            triggerCustomAlert(lat, lng);
+          }
+        }}
       >
         <NavigationControl position="top-right" />
 

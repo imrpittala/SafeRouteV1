@@ -23,14 +23,18 @@ const LiveMap: React.FC = () => {
         <MapView />
         
         {/* Map Overlay Controls */}
-        <div className="absolute top-4 left-4 flex flex-col gap-2">
+        <div className="absolute top-4 left-4 flex flex-col gap-2 z-50">
           <button 
             onClick={simulateAlert}
-            className="bg-zinc-950/80 backdrop-blur-md border border-zinc-800 p-3 rounded-2xl text-xs font-bold text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-xl flex items-center space-x-2"
+            className="bg-zinc-950/80 backdrop-blur-md border border-zinc-800 p-3 rounded-2xl text-xs font-bold text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-xl flex items-center space-x-2 cursor-pointer"
           >
             <ShieldAlert size={16} />
-            <span>Simulate SOS</span>
+            <span>Simulate Random SOS</span>
           </button>
+          
+          <div className="bg-zinc-950/90 backdrop-blur-md border border-zinc-800 p-3 rounded-2xl text-[10px] text-zinc-400 font-semibold shadow-xl border-dashed">
+            💡 Hold <span className="text-zinc-200 underline font-bold">Shift</span> and click on map to place a custom SOS alert
+          </div>
         </div>
       </div>
 
