@@ -79,6 +79,41 @@ export const RouteDetails = () => {
     );
   }
 
+  const getMidpoint = (routeData: any) => {
+    if (!routeData?.geometry?.coordinates?.length) return null;
+    const coords = routeData.geometry.coordinates;
+    return coords[Math.floor(coords.length / 2)];
+  };
+
+  const fastestMid = getMidpoint(routes?.fastest);
+  const safestMid = getMidpoint(routes?.safest);
+  const isSameRoute = !fastestMid || !safestMid || (fastestMid[0] === safestMid[0] && fastestMid[1] === safestMid[1]);
+
+  if (isSameRoute) {
+    return (
+      <View style={styles.bottomCard}>
+        <View style={styles.dragHandle} />
+        
+        <View style={styles.singleRouteInfo}>
+          <ShieldCheck color={COLORS.primary} size={28} style={{ marginRight: SPACING.md }} />
+          <View>
+            <Text style={styles.singleRouteTitle}>Optimal Safe Route Selected</Text>
+            <Text style={styles.singleRouteStats}>
+              {formatStats(routes?.fastest || routes?.safest)}
+            </Text>
+          </View>
+        </View>
+
+        <TouchableOpacity 
+          style={styles.startButton}
+          onPress={() => setIsNavigating(true)}
+        >
+          <Text style={styles.startText}>Start Navigation</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.bottomCard}>
       <View style={styles.dragHandle} />
@@ -317,5 +352,27 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  singleRouteInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: 16,
+    padding: SPACING.md,
+    width: '100%',
+    marginBottom: SPACING.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  singleRouteTitle: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  singleRouteStats: {
+    color: COLORS.textSecondary,
+    fontSize: 13,
+    marginTop: 2,
   },
 });
