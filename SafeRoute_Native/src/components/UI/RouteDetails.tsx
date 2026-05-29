@@ -2,14 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Dimensions, Platform } from 'react-native';
 import { COLORS, SPACING } from '../../theme/theme';
 import { useStore } from '../../store/useStore';
-import { Zap, ShieldCheck, X, Navigation, ArrowUpRight } from 'lucide-react-native';
+import { Zap, ShieldCheck, X, Navigation, ArrowUpRight, AlertTriangle } from 'lucide-react-native';
 
 const { width } = Dimensions.get('window');
 
 export const RouteDetails = () => {
   const { 
     activeRoute, setActiveRoute, routes, setRoutes, destination, 
-    isLoading, isNavigating, setIsNavigating, setDestination 
+    isLoading, isNavigating, setIsNavigating, setDestination, routeBlocked
   } = useStore();
 
   // Mock speedometer for prototype
@@ -94,10 +94,21 @@ export const RouteDetails = () => {
       <View style={styles.bottomCard}>
         <View style={styles.dragHandle} />
         
-        <View style={styles.singleRouteInfo}>
-          <ShieldCheck color={COLORS.primary} size={28} style={{ marginRight: SPACING.md }} />
-          <View>
-            <Text style={styles.singleRouteTitle}>Optimal Safe Route Selected</Text>
+        <View style={[styles.singleRouteInfo, routeBlocked ? styles.blockedAlertBorder : styles.safeAlertBorder]}>
+          {routeBlocked ? (
+            <AlertTriangle color={COLORS.danger} size={28} style={{ marginRight: SPACING.md }} />
+          ) : (
+            <ShieldCheck color={COLORS.primary} size={28} style={{ marginRight: SPACING.md }} />
+          )}
+          <View style={{ flex: 1 }}>
+            <Text style={styles.singleRouteTitle}>
+              {routeBlocked ? 'Direct Route Only' : 'Optimal Safe Route Selected'}
+            </Text>
+            <Text style={styles.singleRouteDescription}>
+              {routeBlocked 
+                ? 'All detours blocked. Proceeding with caution.' 
+                : 'No active hazards detected along this route.'}
+            </Text>
             <Text style={styles.singleRouteStats}>
               {formatStats(routes?.fastest || routes?.safest)}
             </Text>
@@ -114,6 +125,11 @@ export const RouteDetails = () => {
     );
   }
 
+  // Calculate difference in time
+  const fastestMins = routes?.fastest ? Math.round(routes.fastest.properties.weight / 60) : 0;
+  const safestMins = routes?.safest ? Math.round(routes.safest.properties.weight / 60) : 0;
+  const timeDiff = safestMins - fastestMins;
+
   return (
     <View style={styles.bottomCard}>
       <View style={styles.dragHandle} />
@@ -123,11 +139,13 @@ export const RouteDetails = () => {
         <TouchableOpacity
           style={[
             styles.option,
-            activeRoute === 'fastest' && styles.activeOptionFastest,
+            activeRoute === 'fastest' ? styles.activeOptionFastest : styles.inactiveOption,
           ]}
           onPress={() => setActiveRoute('fastest')}
         >
-          <Zap color={activeRoute === 'fastest' ? '#FFF' : COLORS.secondary} size={24} />
+          <View style={[styles.iconCircle, activeRoute === 'fastest' ? styles.iconCircleActiveFastest : styles.iconCircleInactive]}>
+            <Zap color={activeRoute === 'fastest' ? '#FFF' : COLORS.secondary} size={20} />
+          </View>
           <Text style={[styles.optionLabel, activeRoute === 'fastest' && styles.activeText]}>
             Fastest
           </Text>
@@ -137,17 +155,50 @@ export const RouteDetails = () => {
         <TouchableOpacity
           style={[
             styles.option,
-            activeRoute === 'safest' && styles.activeOptionSafest,
+            activeRoute === 'safest' ? styles.activeOptionSafest : styles.inactiveOption,
           ]}
           onPress={() => setActiveRoute('safest')}
         >
-          <ShieldCheck color={activeRoute === 'safest' ? '#FFF' : COLORS.primary} size={24} />
+          <View style={[styles.iconCircle, activeRoute === 'safest' ? styles.iconCircleActiveSafest : styles.iconCircleInactive]}>
+            <ShieldCheck color={activeRoute === 'safest' ? '#FFF' : COLORS.primary} size={20} />
+          </View>
           <Text style={[styles.optionLabel, activeRoute === 'safest' && styles.activeText]}>
             Safest
           </Text>
-          <Text style={styles.stats}>{formatStats(routes?.safest)}</Text>
+          <Text style={styles.stats}>
+            {formatStats(routes?.safest)}
+            {timeDiff > 0 ? ` (+${timeDiff} min)` : ''}
+          </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Dynamic Detour Status Badges */}
+      {activeRoute === 'safest' ? (
+        <View style={[styles.statusBadge, routeBlocked ? styles.badgeCaution : styles.badgeSuccess]}>
+          {routeBlocked ? (
+            <>
+              <AlertTriangle color={COLORS.danger} size={16} style={{ marginRight: SPACING.xs }} />
+              <Text style={styles.badgeTextCaution}>
+                Caution: Alternate route selected. Exposure minimized.
+              </Text>
+            </>
+          ) : (
+            <>
+              <ShieldCheck color={COLORS.primary} size={16} style={{ marginRight: SPACING.xs }} />
+              <Text style={styles.badgeTextSuccess}>
+                Safety Detour Active (Avoiding emergency zones)
+              </Text>
+            </>
+          )}
+        </View>
+      ) : (
+        <View style={[styles.statusBadge, styles.badgeDanger]}>
+          <AlertTriangle color={COLORS.danger} size={16} style={{ marginRight: SPACING.xs }} />
+          <Text style={styles.badgeTextDanger}>
+            Warning: Route passes through active emergency zones.
+          </Text>
+        </View>
+      )}
 
       <TouchableOpacity 
         style={styles.startButton}
@@ -165,22 +216,24 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     width: width,
-    backgroundColor: COLORS.surface,
+    backgroundColor: 'rgba(20, 20, 20, 0.88)', // Glassmorphic dark
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     padding: SPACING.lg,
-    paddingBottom: 40, // Extra padding for the bottom of the screen
+    paddingBottom: Platform.OS === 'ios' ? 44 : 32,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 20,
+    shadowOffset: { width: 0, height: -8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 24,
     alignItems: 'center',
   },
   // Navigation Mode Styles
   topBanner: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 50 : 40,
+    top: Platform.OS === 'ios' ? 60 : 40,
     left: SPACING.md,
     right: SPACING.md,
     backgroundColor: COLORS.secondary,
@@ -212,25 +265,25 @@ const styles = StyleSheet.create({
   },
   speedometer: {
     position: 'absolute',
-    top: 150,
+    top: 170,
     left: SPACING.md,
-    backgroundColor: COLORS.surface,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    backgroundColor: 'rgba(20, 20, 20, 0.85)',
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
-    shadowRadius: 5,
+    shadowRadius: 6,
     elevation: 8,
   },
   speedText: {
     color: '#FFF',
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: 'bold',
   },
   speedUnit: {
@@ -243,11 +296,13 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     width: width,
-    backgroundColor: COLORS.surface,
+    backgroundColor: 'rgba(20, 20, 20, 0.9)',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     padding: SPACING.lg,
-    paddingBottom: 40,
+    paddingBottom: Platform.OS === 'ios' ? 44 : 32,
     flexDirection: 'row',
     alignItems: 'center',
     shadowColor: '#000',
@@ -260,10 +315,10 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: 'rgba(255, 59, 48, 0.2)', // Light red background
+    backgroundColor: 'rgba(255, 59, 48, 0.15)', // Light red background
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: COLORS.danger,
   },
   navInfo: {
@@ -272,7 +327,7 @@ const styles = StyleSheet.create({
   },
   navTimeRemaining: {
     color: COLORS.danger, // Red text for ETA like Mappls
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: 'bold',
   },
   navDistanceETA: {
@@ -284,95 +339,177 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: 'rgba(255,255,255,0.06)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   dragHandle: {
-    width: 40,
+    width: 36,
     height: 4,
-    backgroundColor: COLORS.textSecondary,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     borderRadius: 2,
     marginBottom: SPACING.md,
-    opacity: 0.5,
   },
   title: {
     color: COLORS.text,
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.md,
     alignSelf: 'flex-start',
   },
   optionsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     width: '100%',
-    marginBottom: SPACING.xl,
+    marginBottom: SPACING.md,
   },
   option: {
     flex: 0.48,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 16,
+    borderRadius: 20,
     padding: SPACING.md,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'transparent',
+    borderWidth: 1.5,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  inactiveOption: {
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderColor: 'rgba(255,255,255,0.05)',
   },
   activeOptionFastest: {
-    backgroundColor: COLORS.secondary,
+    backgroundColor: 'rgba(255, 149, 0, 0.12)',
     borderColor: COLORS.secondary,
+    shadowColor: COLORS.secondary,
   },
   activeOptionSafest: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: 'rgba(52, 199, 89, 0.12)',
     borderColor: COLORS.primary,
+    shadowColor: COLORS.primary,
+  },
+  iconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: SPACING.xs,
+  },
+  iconCircleInactive: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  iconCircleActiveFastest: {
+    backgroundColor: COLORS.secondary,
+  },
+  iconCircleActiveSafest: {
+    backgroundColor: COLORS.primary,
   },
   optionLabel: {
     color: COLORS.textSecondary,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
-    marginTop: SPACING.sm,
+    marginTop: SPACING.xs,
   },
   activeText: {
     color: '#FFF',
+    fontWeight: '700',
   },
   stats: {
     color: COLORS.textSecondary,
     fontSize: 12,
     marginTop: 4,
+    textAlign: 'center',
+  },
+  statusBadge: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: SPACING.md,
+    borderRadius: 14,
+    marginBottom: SPACING.lg,
+    borderWidth: 1,
+  },
+  badgeSuccess: {
+    backgroundColor: 'rgba(52, 199, 89, 0.08)',
+    borderColor: 'rgba(52, 199, 89, 0.2)',
+  },
+  badgeCaution: {
+    backgroundColor: 'rgba(255, 149, 0, 0.08)',
+    borderColor: 'rgba(255, 149, 0, 0.2)',
+  },
+  badgeDanger: {
+    backgroundColor: 'rgba(255, 59, 48, 0.08)',
+    borderColor: 'rgba(255, 59, 48, 0.2)',
+  },
+  badgeTextSuccess: {
+    color: '#34C759',
+    fontSize: 12,
+    fontWeight: '600',
+    flex: 1,
+  },
+  badgeTextCaution: {
+    color: '#FF9500',
+    fontSize: 12,
+    fontWeight: '600',
+    flex: 1,
+  },
+  badgeTextDanger: {
+    color: '#FF3B30',
+    fontSize: 12,
+    fontWeight: '600',
+    flex: 1,
   },
   startButton: {
     backgroundColor: COLORS.accent,
     width: '100%',
-    height: 56,
-    borderRadius: 28,
+    height: 54,
+    borderRadius: 27,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: COLORS.accent,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 8,
   },
   startText: {
     color: '#FFF',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
   },
   singleRouteInfo: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.03)',
     borderRadius: 16,
     padding: SPACING.md,
     width: '100%',
     marginBottom: SPACING.lg,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  safeAlertBorder: {
+    backgroundColor: 'rgba(52, 199, 89, 0.06)',
+    borderColor: 'rgba(52, 199, 89, 0.15)',
+  },
+  blockedAlertBorder: {
+    backgroundColor: 'rgba(255, 149, 0, 0.06)',
+    borderColor: 'rgba(255, 149, 0, 0.15)',
   },
   singleRouteTitle: {
     color: COLORS.text,
     fontSize: 16,
     fontWeight: 'bold',
   },
+  singleRouteDescription: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    marginTop: 2,
+  },
   singleRouteStats: {
     color: COLORS.textSecondary,
     fontSize: 13,
-    marginTop: 2,
+    marginTop: 6,
+    fontWeight: '600',
   },
 });

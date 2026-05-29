@@ -8,11 +8,13 @@ interface MapState {
     fastest: any;
     safest: any;
   } | null;
+  routeBlocked: boolean;
   sosAlerts: Array<{ id: string; location: [number, number] }>;
   setUserLocation: (location: [number, number]) => void;
   setDestination: (location: [number, number] | null) => void;
   setActiveRoute: (route: 'fastest' | 'safest') => void;
   setRoutes: (routes: { fastest: any; safest: any } | null) => void;
+  setRouteBlocked: (blocked: boolean) => void;
   addSosAlert: (alert: { id: string; location: [number, number] }) => void;
   isLoading: boolean;
   setIsLoading: (loading: boolean) => void;
@@ -27,11 +29,13 @@ export const useStore = create<MapState>((set) => ({
   destination: null,
   activeRoute: 'safest',
   routes: null,
+  routeBlocked: false,
   sosAlerts: [],
   setUserLocation: (location) => set({ userLocation: location }),
   setDestination: (location) => set({ destination: location }),
   setActiveRoute: (route) => set({ activeRoute: route }),
   setRoutes: (routes) => set({ routes }),
+  setRouteBlocked: (blocked) => set({ routeBlocked: blocked }),
   addSosAlert: (alert) => set((state) => {
     const isDuplicate = state.sosAlerts.some((a) => a.id === alert.id);
     if (isDuplicate) return state;

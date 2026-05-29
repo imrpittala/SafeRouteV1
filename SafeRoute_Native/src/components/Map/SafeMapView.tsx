@@ -21,7 +21,7 @@ export const SafeMapView = () => {
   const { 
     userLocation, destination, setUserLocation, 
     routes, setRoutes, activeRoute, sosAlerts, addSosAlert,
-    isLoading, setIsLoading, isNavigating
+    isLoading, setIsLoading, isNavigating, setRouteBlocked
   } = useStore();
   const cameraRef = useRef<Camera>(null);
 
@@ -125,6 +125,7 @@ export const SafeMapView = () => {
         fastest: res.data.fastest_route, 
         safest: res.data.safest_route 
       });
+      setRouteBlocked(res.data.route_blocked || false);
       
       cameraRef.current?.fitBounds(
         userLocation,
