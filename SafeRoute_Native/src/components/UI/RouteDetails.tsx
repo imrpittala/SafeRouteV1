@@ -149,7 +149,7 @@ export const RouteDetails = () => {
           <Text style={[styles.optionLabel, activeRoute === 'fastest' && styles.activeText]}>
             Fastest
           </Text>
-          <Text style={styles.stats}>{formatStats(routes?.fastest)}</Text>
+          <Text style={[styles.stats, activeRoute === 'fastest' && styles.activeText]}>{formatStats(routes?.fastest)}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -165,7 +165,7 @@ export const RouteDetails = () => {
           <Text style={[styles.optionLabel, activeRoute === 'safest' && styles.activeText]}>
             Safest
           </Text>
-          <Text style={styles.stats}>
+          <Text style={[styles.stats, activeRoute === 'safest' && styles.activeText]}>
             {formatStats(routes?.safest)}
             {timeDiff > 0 ? ` (+${timeDiff} min)` : ''}
           </Text>
