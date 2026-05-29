@@ -252,9 +252,13 @@ async def get_valhalla_route(req: ValhallaRouteRequest):
         dist_to_start = haversine(alert["lat"], alert["lng"], req.user_lat, req.user_lng)
         dist_to_dest = haversine(alert["lat"], alert["lng"], req.dest_lat, req.dest_lng)
         
+        # Convert distances to km for check and logging
+        dist_to_start_km = dist_to_start / 1000.0
+        dist_to_dest_km = dist_to_dest / 1000.0
+        
         # If the SOS is within 0.4 km of start or destination, skip it so Valhalla doesn't fail
-        if dist_to_start < 0.4 or dist_to_dest < 0.4:
-            logger.info(f"Skipping avoid polygon for SOS alert close to route endpoints (Start: {dist_to_start:.3f} km, Dest: {dist_to_dest:.3f} km)")
+        if dist_to_start_km < 0.4 or dist_to_dest_km < 0.4:
+            logger.info(f"Skipping avoid polygon for SOS alert close to route endpoints (Start: {dist_to_start_km:.3f} km, Dest: {dist_to_dest_km:.3f} km)")
             continue
             
         danger_zone = create_danger_polygon(alert["lat"], alert["lng"], radius_km=0.3)
