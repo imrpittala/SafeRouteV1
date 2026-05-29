@@ -115,6 +115,9 @@ export const useWebSocket = () => {
         type: 'SOS',
         status: 'active'
       });
+    }
+  };
+
   // For testing: Function to simulate a custom coordinate alert
   const triggerCustomAlert = (lat: number, lng: number) => {
     const mockAlert = {
