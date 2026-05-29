@@ -1,6 +1,19 @@
 version: '3.8'
 
 services:
+  db:
+    image: postgis/postgis:15-3.3
+    container_name: saferoute_db
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-saferoute_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-saferoute_pass}
+      - POSTGRES_DB=${POSTGRES_DB:-saferoute_db}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: always
+
   redis:
     image: redis:alpine
     container_name: saferoute_redis
@@ -29,7 +42,12 @@ services:
     environment:
       - REDIS_HOST=redis
       - VALHALLA_URL=http://valhalla:8002/route
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-saferoute_user}:${POSTGRES_PASSWORD:-saferoute_pass}@db:5432/${POSTGRES_DB:-saferoute_db}
     depends_on:
+      - db
       - redis
       - valhalla
     restart: always
+
+volumes:
+  postgres_data:

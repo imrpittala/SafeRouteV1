@@ -1,9 +1,11 @@
 import json
 import os
+import asyncio
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from contextlib import asynccontextmanager
@@ -14,15 +16,86 @@ import redis.asyncio as redis
 import httpx
 import polyline
 
+try:
+    import asyncpg
+except ImportError:
+    asyncpg = None
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 G = None
 redis_client = None
+db_pool = None  # asyncpg connection pool for PostgreSQL
+
+async def init_db_pool() -> Optional[object]:
+    """Initialize asyncpg connection pool with a 5-step retry loop."""
+    global db_pool
+    if asyncpg is None:
+        logger.warning("asyncpg not installed. PostgreSQL persistence disabled.")
+        return None
+
+    database_url = os.getenv("DATABASE_URL", "postgresql://saferoute_user:saferoute_pass@localhost:5432/saferoute_db")
+    
+    for attempt in range(1, 6):
+        try:
+            logger.info(f"PostgreSQL connection attempt {attempt}/5...")
+            pool = await asyncpg.create_pool(
+                dsn=database_url,
+                min_size=2,
+                max_size=10,
+                command_timeout=10
+            )
+            logger.info("PostgreSQL connection pool established successfully.")
+            return pool
+        except Exception as e:
+            logger.warning(f"PostgreSQL connection attempt {attempt}/5 failed: {e}")
+            if attempt < 5:
+                await asyncio.sleep(2)
+    
+    logger.error("All 5 PostgreSQL connection attempts failed. Running without persistent storage.")
+    return None
+
+
+async def run_migrations(pool):
+    """Auto-DDL: Enable PostGIS and create sos_incidents table if not exists."""
+    async with pool.acquire() as conn:
+        # Enable PostGIS extension
+        await conn.execute("CREATE EXTENSION IF NOT EXISTS postgis;")
+        logger.info("PostGIS extension ensured.")
+        
+        # Create sos_incidents table
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS sos_incidents (
+                id              SERIAL PRIMARY KEY,
+                user_id         VARCHAR(128) NOT NULL,
+                geom            GEOMETRY(Point, 4326),
+                latitude        DOUBLE PRECISION NOT NULL,
+                longitude       DOUBLE PRECISION NOT NULL,
+                created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                resolved_at     TIMESTAMPTZ,
+                exposure_level  VARCHAR(32) DEFAULT 'unknown'
+            );
+        """)
+        
+        # Create spatial GIST index for fast geospatial queries
+        await conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_sos_incidents_geom
+            ON sos_incidents USING GIST (geom);
+        """)
+        
+        # Create index on created_at for time-range heatmap queries
+        await conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_sos_incidents_created_at
+            ON sos_incidents (created_at);
+        """)
+        
+        logger.info("Database migrations complete: sos_incidents table and indexes verified.")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global G, redis_client
+    global G, redis_client, db_pool
     logger.info("Initializing Graph with OSMnx...")
     try:
         # Expanded bounding box to cover Kukatpally, Madhapur, Gachibowli, and core tech hubs (12km radius)
@@ -46,10 +119,23 @@ async def lifespan(app: FastAPI):
             retry=None
         )
     
+    # Initialize PostgreSQL connection pool
+    db_pool = await init_db_pool()
+    if db_pool:
+        try:
+            await run_migrations(db_pool)
+        except Exception as e:
+            logger.error(f"Database migration failed: {e}. Continuing without persistent storage.")
+    
     yield
     
+    # Cleanup
     logger.info("Closing Redis client...")
     await redis_client.aclose()
+    
+    if db_pool:
+        logger.info("Closing PostgreSQL connection pool...")
+        await db_pool.close()
 
 app = FastAPI(title="SafeRoute Backend", description="Real-time SOS alerting for SafeRoute.", lifespan=lifespan)
 
@@ -102,13 +188,25 @@ async def add_active_sos(user_id: str, lat: float, lng: float):
         "timestamp": datetime.utcnow()
     }
     
-    if redis_client is None:
-        return
-    try:
-        await redis_client.geoadd("sos_alerts", (lng, lat, user_id))
-        await redis_client.setex(f"sos_ttl:{user_id}", SOS_TTL, "active")
-    except Exception as e:
-        logger.error(f"Redis geoadd failed. Falling back to RAM cache. Error: {e}")
+    # Write to Redis (real-time geofencing for Valhalla routing)
+    if redis_client is not None:
+        try:
+            await redis_client.geoadd("sos_alerts", (lng, lat, user_id))
+            await redis_client.setex(f"sos_ttl:{user_id}", SOS_TTL, "active")
+        except Exception as e:
+            logger.error(f"Redis geoadd failed. Falling back to RAM cache. Error: {e}")
+    
+    # Write to PostgreSQL (permanent archival for heatmaps)
+    if db_pool is not None:
+        try:
+            async with db_pool.acquire() as conn:
+                await conn.execute("""
+                    INSERT INTO sos_incidents (user_id, geom, latitude, longitude)
+                    VALUES ($1, ST_SetSRID(ST_MakePoint($3, $2), 4326), $2, $3)
+                """, user_id, lat, lng)
+            logger.info(f"SOS incident for {user_id} archived to PostgreSQL.")
+        except Exception as e:
+            logger.error(f"PostgreSQL archival failed for {user_id}. Alert still cached in Redis/RAM. Error: {e}")
 
 async def get_nearby_sos(lat: float, lng: float, radius_km: float = 2.0) -> List[str]:
     # Clean up expired alerts from RAM cache
@@ -533,6 +631,15 @@ async def get_system_health():
             redis_ok = await redis_client.ping()
         except Exception:
             redis_ok = False
+    
+    postgres_ok = False
+    if db_pool is not None:
+        try:
+            async with db_pool.acquire() as conn:
+                await conn.fetchval("SELECT 1")
+            postgres_ok = True
+        except Exception:
+            postgres_ok = False
             
     return {
         "status": "healthy",
@@ -540,13 +647,76 @@ async def get_system_health():
         "memory_usage": 1540, # MB
         "active_workers": 12,
         "redis_connected": redis_ok,
+        "postgres_connected": postgres_ok,
         "graph_nodes": len(G.nodes) if G else 0,
         "uptime_seconds": 15600
     }
 
+@app.get("/api/analytics/heatmap")
+async def get_heatmap():
+    """
+    Heatmap GeoJSON endpoint.
+    Uses native PostGIS ST_AsGeoJSON and PostgreSQL json_build_object to construct
+    a valid GeoJSON FeatureCollection entirely within the database engine.
+    """
+    if db_pool is None:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "PostgreSQL is not available. Heatmap data requires persistent storage."}
+        )
+    
+    try:
+        async with db_pool.acquire() as conn:
+            row = await conn.fetchval("""
+                SELECT json_build_object(
+                    'type', 'FeatureCollection',
+                    'features', COALESCE(json_agg(
+                        json_build_object(
+                            'type', 'Feature',
+                            'geometry', ST_AsGeoJSON(geom)::json,
+                            'properties', json_build_object(
+                                'id', id,
+                                'user_id', user_id,
+                                'latitude', latitude,
+                                'longitude', longitude,
+                                'created_at', created_at,
+                                'resolved_at', resolved_at,
+                                'exposure_level', exposure_level
+                            )
+                        )
+                    ), '[]'::json)
+                )::text
+                FROM sos_incidents;
+            """)
+            
+            return JSONResponse(content=json.loads(row))
+    except Exception as e:
+        logger.error(f"Heatmap query failed: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Heatmap query failed: {str(e)}"}
+        )
+
+
 @app.get("/analytics/sos-trends")
 async def get_sos_trends():
-    # Mock data for historical trends
+    # If PostgreSQL is available, query real data; otherwise fall back to mock
+    if db_pool is not None:
+        try:
+            async with db_pool.acquire() as conn:
+                rows = await conn.fetch("""
+                    SELECT TO_CHAR(created_at, 'Dy') as day, COUNT(*) as alerts
+                    FROM sos_incidents
+                    WHERE created_at >= NOW() - INTERVAL '7 days'
+                    GROUP BY TO_CHAR(created_at, 'Dy'), EXTRACT(DOW FROM created_at)
+                    ORDER BY EXTRACT(DOW FROM created_at)
+                """)
+                if rows:
+                    return [{"day": r["day"], "alerts": r["alerts"]} for r in rows]
+        except Exception as e:
+            logger.warning(f"Failed to query sos-trends from PostgreSQL: {e}. Using mock data.")
+    
+    # Fallback mock data
     return [
         {"day": "Mon", "alerts": 12},
         {"day": "Tue", "alerts": 19},
