@@ -96,7 +96,7 @@ const MapView: React.FC = () => {
         mapStyle="mapbox://styles/mapbox/dark-v11"
         terrain={{ source: 'mapbox-dem', exaggeration: 1.5 }}
         onClick={(e) => {
-          if (e.originalEvent.shiftKey) {
+          if (e.originalEvent.altKey || e.originalEvent.ctrlKey || e.originalEvent.metaKey) {
             const { lng, lat } = e.lngLat;
             triggerCustomAlert(lat, lng);
           }

@@ -33,7 +33,7 @@ const LiveMap: React.FC = () => {
           </button>
           
           <div className="bg-zinc-950/90 backdrop-blur-md border border-zinc-800 p-3 rounded-2xl text-[10px] text-zinc-400 font-semibold shadow-xl border-dashed">
-            💡 Hold <span className="text-zinc-200 underline font-bold">Shift</span> and click on map to place a custom SOS alert
+            💡 Hold <span className="text-zinc-200 underline font-bold">Alt</span> (or <span className="text-zinc-200 underline font-bold">Ctrl</span>) and click on map to place a custom SOS alert
           </div>
         </div>
       </div>
