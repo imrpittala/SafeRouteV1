@@ -13,6 +13,7 @@ module.exports = {
     },
     android: {
       package: "com.anonymous.SafeRoute",
+      usesCleartextTraffic: true,
       config: {
         googleMaps: {
           apiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || ""
