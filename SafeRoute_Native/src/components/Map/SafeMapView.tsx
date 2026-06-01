@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { StyleSheet, View, Platform, PermissionsAndroid, ActivityIndicator, TouchableOpacity, Text } from 'react-native';
+import { StyleSheet, View, Platform, PermissionsAndroid, ActivityIndicator, TouchableOpacity, Text, Alert } from 'react-native';
 import Mapbox, { MapView, Camera, UserLocation, StyleURL, ShapeSource, LineLayer, PointAnnotation } from '@rnmapbox/maps';
 
 import { LocateFixed } from 'lucide-react-native';
@@ -137,8 +137,21 @@ export const SafeMapView = () => {
         [50, 50, 50, 50],
         1000
       );
-    } catch (error) {
-      console.error('Fetch routes error:', error);
+    } catch (error: any) {
+      console.warn('Fetch routes warning:', error);
+      console.log('WS connection was preserved.');
+
+      if (error.response && error.response.status === 400) {
+        Alert.alert(
+          'Routing Error',
+          'No suitable roads found near this location. Try moving your pins closer to a main road.'
+        );
+      } else {
+        Alert.alert(
+          'Routing Error',
+          'Failed to calculate route. Please check your network and try again.'
+        );
+      }
     } finally {
       setIsLoading(false);
     }
