@@ -89,10 +89,24 @@ export const SafeMapView = () => {
     };
   }, []);
 
+  const routeDebounceRef = useRef<any>(null);
+
   useEffect(() => {
-    if (userLocation && destination) {
-      fetchRoutes();
+    if (routeDebounceRef.current) {
+      clearTimeout(routeDebounceRef.current);
     }
+
+    if (userLocation && destination) {
+      routeDebounceRef.current = setTimeout(() => {
+        fetchRoutes();
+      }, 400); // 400ms debounce to allow rapid state updates to settle
+    }
+
+    return () => {
+      if (routeDebounceRef.current) {
+        clearTimeout(routeDebounceRef.current);
+      }
+    };
   }, [destination, sosAlerts]);
 
   const fetchRoutes = async () => {
