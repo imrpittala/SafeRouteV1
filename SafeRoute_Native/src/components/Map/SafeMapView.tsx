@@ -66,7 +66,7 @@ export const SafeMapView = () => {
             removeSosAlert(data.userId);
           }
         } catch (err) {
-          console.error('Failed to parse map WS message:', err);
+          console.warn('Failed to parse map WS message:', err);
         }
       };
 
@@ -76,7 +76,7 @@ export const SafeMapView = () => {
       };
 
       ws.onerror = (err) => {
-        console.error('Mobile map WS error:', err);
+        console.warn('Mobile map WS error:', err);
         ws?.close();
       };
     };
@@ -123,7 +123,7 @@ export const SafeMapView = () => {
       });
       
       if (res.data.error) {
-        console.error('Backend routing error:', res.data.error);
+        console.warn('Backend routing error:', res.data.error);
         return;
       }
 
