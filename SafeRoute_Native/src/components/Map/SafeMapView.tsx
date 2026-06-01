@@ -286,6 +286,8 @@ export const SafeMapView = () => {
           visible={true}
           onUpdate={onUserLocationUpdate}
           showsUserHeadingIndicator={true}
+          minDisplacement={3}
+          androidRenderMode="normal"
         />
       </MapView>
       
