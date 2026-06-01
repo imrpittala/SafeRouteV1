@@ -43,13 +43,25 @@ export const useStore = create<SystemState>((set) => ({
       systemStatus: newAlerts.length > 0 ? 'warning' : 'healthy'
     };
   }),
-  resolveAlert: (userId, timestamp) => set((state) => {
-    const newAlerts = state.alerts.filter(a => !(a.userId === userId && a.timestamp === timestamp));
-    return { 
-      alerts: newAlerts,
-      systemStatus: newAlerts.length > 0 ? 'warning' : 'healthy'
-    };
-  }),
+  resolveAlert: (userId, timestamp) => {
+    // Send API request to resolve in PostgreSQL & Redis
+    const url = import.meta.env.VITE_BACKEND_API_URL || 'http://20.40.61.11:8000';
+    fetch(`${url}/api/sos/resolve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId })
+    }).catch((err) => {
+      console.error('Failed to notify backend of SOS resolution:', err);
+    });
+
+    set((state) => {
+      const newAlerts = state.alerts.filter(a => !(a.userId === userId && a.timestamp === timestamp));
+      return { 
+        alerts: newAlerts,
+        systemStatus: newAlerts.length > 0 ? 'warning' : 'healthy'
+      };
+    });
+  },
   isSidebarOpen: true,
   toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
   focusedLocation: null,

@@ -16,6 +16,7 @@ interface MapState {
   setRoutes: (routes: { fastest: any; safest: any } | null) => void;
   setRouteBlocked: (blocked: boolean) => void;
   addSosAlert: (alert: { id: string; location: [number, number] }) => void;
+  removeSosAlert: (id: string) => void;
   isLoading: boolean;
   setIsLoading: (loading: boolean) => void;
   isNavigating: boolean;
@@ -41,6 +42,9 @@ export const useStore = create<MapState>((set) => ({
     if (isDuplicate) return state;
     return { sosAlerts: [...state.sosAlerts, alert] };
   }),
+  removeSosAlert: (id) => set((state) => ({
+    sosAlerts: state.sosAlerts.filter((a) => a.id !== id)
+  })),
   isLoading: false,
   setIsLoading: (loading) => set({ isLoading: loading }),
   isNavigating: false,

@@ -7,10 +7,10 @@ let reconnectTimeout: any = null;
 const listeners = new Set<(data: any) => void>();
 
 export const useWebSocket = () => {
-  const { addAlert, setSystemStatus } = useStore();
+  const { addAlert, setSystemStatus, resolveAlert } = useStore();
 
   useEffect(() => {
-    const wsUrl = import.meta.env.VITE_BACKEND_WS_URL || 'ws://127.0.0.1:8000/ws/sos';
+    const wsUrl = import.meta.env.VITE_BACKEND_WS_URL || 'ws://20.40.61.11:8000/ws/sos';
 
     const handleMessage = (data: any) => {
       if (data.type === 'SOS') {
@@ -22,6 +22,8 @@ export const useWebSocket = () => {
           status: 'active'
         };
         addAlert(alert);
+      } else if (data.type === 'SOS_RESOLVED' || data.event === 'sos_resolved') {
+        resolveAlert(data.userId, data.timestamp || new Date().toISOString());
       }
     };
 

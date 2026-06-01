@@ -11,7 +11,7 @@ import {
 import axios from 'axios';
 import { cn } from '../utils/cn';
 
-const API_URL = import.meta.env.VITE_BACKEND_API_URL || 'http://localhost:8000';
+const API_URL = import.meta.env.VITE_BACKEND_API_URL || 'http://20.40.61.11:8000';
 
 const Settings: React.FC = () => {
   const [dangerPenalty, setDangerPenalty] = useState(1000);

@@ -21,7 +21,7 @@ const BACKEND_WS = process.env.EXPO_PUBLIC_BACKEND_WS || 'ws://20.40.61.11:8000/
 export const SafeMapView = () => {
   const { 
     userLocation, destination, setUserLocation, 
-    routes, setRoutes, activeRoute, sosAlerts, addSosAlert,
+    routes, setRoutes, activeRoute, sosAlerts, addSosAlert, removeSosAlert,
     isLoading, setIsLoading, isNavigating, setRouteBlocked
   } = useStore();
   const cameraRef = useRef<Camera>(null);
@@ -62,6 +62,8 @@ export const SafeMapView = () => {
               id: data.userId, 
               location: [data.location.lng, data.location.lat] 
             });
+          } else if (data.type === 'SOS_RESOLVED' || data.event === 'sos_resolved') {
+            removeSosAlert(data.userId);
           }
         } catch (err) {
           console.error('Failed to parse map WS message:', err);

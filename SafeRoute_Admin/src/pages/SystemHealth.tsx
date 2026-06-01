@@ -22,8 +22,9 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import { cn } from '../utils/cn';
+import SOSHistoryTable from '../components/SOSHistoryTable';
 
-const API_URL = import.meta.env.VITE_BACKEND_API_URL || 'http://localhost:8000';
+const API_URL = import.meta.env.VITE_BACKEND_API_URL || 'http://20.40.61.11:8000';
 
 const SystemHealth: React.FC = () => {
   const [healthData, setHealthData] = useState<any>(null);
@@ -143,6 +144,9 @@ const SystemHealth: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Historical Chronological Incident Log */}
+      <SOSHistoryTable />
     </div>
   );
 };

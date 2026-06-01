@@ -1,7 +1,7 @@
 import json
 import os
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from typing import List, Optional
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
@@ -787,3 +787,172 @@ async def get_response_times():
         {"time": "14:00", "latency": 28},
         {"time": "15:00", "latency": 24}
     ]
+
+class ResolveSOSRequest(BaseModel):
+    userId: str
+
+@app.post("/api/sos/resolve")
+async def resolve_sos(req: ResolveSOSRequest):
+    user_id = req.userId
+    now_tz = datetime.now(timezone.utc)
+    now_naive = datetime.utcnow()
+    
+    # 1. Update PostgreSQL
+    if db_pool is not None:
+        try:
+            async with db_pool.acquire() as conn:
+                await conn.execute(
+                    "UPDATE sos_incidents SET resolved_at = $1 WHERE user_id = $2 AND resolved_at IS NULL",
+                    now_tz, user_id
+                )
+            logger.info(f"Marked SOS incident resolved in PostgreSQL for user {user_id}")
+        except Exception as e:
+            logger.error(f"PostgreSQL resolve update failed: {e}")
+            
+    # 2. Clear Redis cache & memory
+    if user_id in MEM_SOS_ALERTS:
+        del MEM_SOS_ALERTS[user_id]
+        
+    if redis_client is not None:
+        try:
+            await redis_client.zrem("sos_alerts", user_id)
+            await redis_client.delete(f"sos_ttl:{user_id}")
+        except Exception as e:
+            logger.error(f"Redis cache removal failed: {e}")
+            
+    # 3. Broadcast resolution to clients
+    await manager.broadcast({
+        "type": "SOS_RESOLVED",
+        "userId": user_id,
+        "timestamp": now_tz.isoformat()
+    })
+    
+    return {"status": "success", "resolved_user": user_id}
+
+@app.post("/api/admin/purge-stale-sos")
+async def purge_stale_sos():
+    purged_users = []
+    now_tz = datetime.now(timezone.utc)
+    now_naive = datetime.utcnow()
+    
+    # 1. Gather all active user IDs from memory and Redis
+    active_user_ids = set(MEM_SOS_ALERTS.keys())
+    if redis_client is not None:
+        try:
+            redis_users = await redis_client.zrange("sos_alerts", 0, -1)
+            active_user_ids.update(redis_users)
+        except Exception as e:
+            logger.error(f"Failed to scan Redis active alerts: {e}")
+            
+    # 2. Query all database incidents that are currently unresolved (resolved_at IS NULL)
+    db_unresolved_users = []
+    if db_pool is not None:
+        try:
+            async with db_pool.acquire() as conn:
+                rows = await conn.fetch("SELECT DISTINCT user_id FROM sos_incidents WHERE resolved_at IS NULL")
+                db_unresolved_users = [r["user_id"] for r in rows]
+        except Exception as e:
+            logger.error(f"Failed to fetch unresolved incidents from DB: {e}")
+            
+    # Merge unresolved database users into the scan pool
+    all_scan_users = active_user_ids.union(db_unresolved_users)
+            
+    # 3. Iterate and evaluate each user's SOS alert status
+    for user_id in all_scan_users:
+        should_purge = False
+        reason = ""
+        db_created_at = None
+        
+        # Check Redis active state directly
+        redis_active = False
+        if redis_client is not None:
+            try:
+                redis_active = await redis_client.exists(f"sos_ttl:{user_id}")
+            except Exception:
+                redis_active = False
+                
+        mem_active = user_id in MEM_SOS_ALERTS
+        
+        # Fetch DB record
+        db_resolved = False
+        if db_pool is not None:
+            try:
+                async with db_pool.acquire() as conn:
+                    row = await conn.fetchrow(
+                        "SELECT id, resolved_at, created_at FROM sos_incidents WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1",
+                        user_id
+                    )
+                    if row:
+                        db_created_at = row["created_at"]
+                        if row["resolved_at"] is not None:
+                            db_resolved = True
+            except Exception as e:
+                logger.error(f"Failed to query DB for user {user_id}: {e}")
+                
+        # Determine purge/resolution criteria:
+        # If it's already marked resolved in the DB, we just ensure it's removed from cache
+        if db_resolved:
+            if mem_active or redis_active:
+                should_purge = True
+                reason = "already resolved in database"
+        else:
+            # If not resolved in DB, check if it should be resolved/purged
+            # A: Database record is older than 24 hours
+            if db_created_at and (now_tz - db_created_at).total_seconds() > 86400:
+                should_purge = True
+                reason = "database record older than 24h"
+            # B: Memory fallback record is older than 24 hours
+            elif user_id in MEM_SOS_ALERTS and (now_naive - MEM_SOS_ALERTS[user_id]["timestamp"]).total_seconds() > 86400:
+                should_purge = True
+                reason = "memory cache record older than 24h"
+            # C: It is NOT active in Redis and NOT active in memory (ghost active alert in DB)
+            elif not redis_active and not mem_active:
+                should_purge = True
+                reason = "auto-purged or resolved (cache inactive)"
+                
+        if should_purge:
+            # Update PostgreSQL database: mark as resolved/purged
+            if db_pool is not None and not db_resolved:
+                try:
+                    # Set resolved_at to created_at + 1 hour as default resolution time
+                    resolved_time = (db_created_at + timedelta(hours=1)) if db_created_at else now_tz
+                    # Make sure resolved_time doesn't exceed now
+                    if resolved_time > now_tz:
+                        resolved_time = now_tz
+                        
+                    async with db_pool.acquire() as conn:
+                        await conn.execute(
+                            "UPDATE sos_incidents SET resolved_at = $1 WHERE user_id = $2 AND resolved_at IS NULL",
+                            resolved_time, user_id
+                        )
+                    logger.info(f"Marked stale SOS incident resolved in PostgreSQL for user {user_id}")
+                except Exception as e:
+                    logger.error(f"Failed to update resolved_at in PostgreSQL: {e}")
+            
+            # Purge from memory
+            if user_id in MEM_SOS_ALERTS:
+                del MEM_SOS_ALERTS[user_id]
+                
+            # Purge from Redis
+            if redis_client is not None:
+                try:
+                    await redis_client.zrem("sos_alerts", user_id)
+                    await redis_client.delete(f"sos_ttl:{user_id}")
+                except Exception as e:
+                    logger.error(f"Failed to purge Redis keys for user {user_id}: {e}")
+                    
+            # Broadcast eviction to all active WebSocket connections
+            await manager.broadcast({
+                "type": "SOS_RESOLVED",
+                "userId": user_id,
+                "timestamp": now_tz.isoformat()
+            })
+            
+            purged_users.append({"userId": user_id, "reason": reason})
+            logger.info(f"Purged/Resolved stale SOS alert for user {user_id} (Reason: {reason})")
+            
+    return {
+        "status": "success",
+        "purged_count": len(purged_users),
+        "purged_details": purged_users
+    }
