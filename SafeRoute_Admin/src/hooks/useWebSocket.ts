@@ -3,7 +3,7 @@ import { useStore, type SOSAlert } from '../store/useStore';
 
 // Reference-counted shared socket variables at module scope
 let globalSocket: WebSocket | null = null;
-let reconnectTimeout: NodeJS.Timeout | null = null;
+let reconnectTimeout: any = null;
 const listeners = new Set<(data: any) => void>();
 
 export const useWebSocket = () => {

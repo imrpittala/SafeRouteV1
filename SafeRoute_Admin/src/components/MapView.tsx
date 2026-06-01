@@ -1,9 +1,53 @@
 import React, { useRef, useEffect, useState } from 'react';
-import Map, { Marker, NavigationControl, type MapRef } from 'react-map-gl/mapbox';
+import Map, { Marker, NavigationControl, Source, Layer, type MapRef, type LayerProps } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useStore } from '../store/useStore';
 import { AlertCircle, ShieldAlert } from 'lucide-react';
 import { useWebSocket } from '../hooks/useWebSocket';
+
+const heatmapLayer: LayerProps = {
+  id: 'historical-incidents-heatmap',
+  type: 'heatmap',
+  paint: {
+    // Read the exposure_level property from GeoJSON to calculate weight
+    'heatmap-weight': [
+      'interpolate',
+      ['linear'],
+      ['coalesce', ['get', 'exposure_level'], 1],
+      0, 0,
+      10, 1
+    ],
+    // Adjust heatmap intensity by zoom level
+    'heatmap-intensity': [
+      'interpolate',
+      ['linear'],
+      ['zoom'],
+      0, 1,
+      15, 3
+    ],
+    // Danger gradient: transparent/light blue -> orange -> solid red
+    'heatmap-color': [
+      'interpolate',
+      ['linear'],
+      ['heatmap-density'],
+      0, 'rgba(0, 128, 255, 0)',        // Transparent low density
+      0.2, 'rgba(0, 128, 255, 0.4)',     // Light blue
+      0.6, 'rgba(255, 165, 0, 0.8)',      // Orange (medium density)
+      1.0, 'rgba(220, 38, 38, 1)'        // Solid red (high density)
+    ],
+    // Heatmap radius zoom scaling (radius 2 at zoom 0, radius 25 at zoom 15)
+    'heatmap-radius': [
+      'interpolate',
+      ['linear'],
+      ['zoom'],
+      0, 2,
+      15, 25
+    ],
+    // Set general opacity
+    'heatmap-opacity': 0.85
+  }
+};
+
 
 const MapView: React.FC = () => {
   const mapRef = useRef<MapRef>(null);
@@ -13,6 +57,24 @@ const MapView: React.FC = () => {
 
   // Active Patrol Responders State
   const [patrols, setPatrols] = useState<any[]>([]);
+  // Heatmap GeoJSON Data State
+  const [heatmapData, setHeatmapData] = useState<any>(null);
+
+  useEffect(() => {
+    const fetchHeatmapData = async () => {
+      try {
+        const response = await fetch(`${import.meta.env.VITE_BACKEND_API_URL || 'http://20.40.61.11:8000'}/api/analytics/heatmap`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch heatmap data');
+        }
+        const data = await response.json();
+        setHeatmapData(data);
+      } catch (error) {
+        console.error('Error fetching heatmap data:', error);
+      }
+    };
+    fetchHeatmapData();
+  }, []);
 
   useEffect(() => {
     if (focusedLocation && mapRef.current) {
@@ -104,6 +166,13 @@ const MapView: React.FC = () => {
       >
         <NavigationControl position="top-right" />
 
+        {/* Historical SOS Heatmap Layer */}
+        {heatmapData && (
+          <Source id="historical-heatmap-source" type="geojson" data={heatmapData}>
+            <Layer {...heatmapLayer} />
+          </Source>
+        )}
+
         {/* Pulse Markers for SOS Alerts */}
         {alerts.map((alert, index) => (
           <Marker
@@ -184,6 +253,14 @@ const MapView: React.FC = () => {
             <span className="text-xs font-semibold text-zinc-300">
               Patrol Responders {patrols.length > 0 ? `(${patrols.length} Active)` : '(Idle)'}
             </span>
+          </div>
+          <div className="pt-2 border-t border-zinc-800/60">
+            <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5">Danger Density</p>
+            <div className="flex items-center space-x-2">
+              <span className="text-[10px] text-blue-400">Low</span>
+              <div className="h-2 w-24 rounded-full bg-gradient-to-r from-blue-500 via-yellow-400 to-red-600 shadow-[0_0_8px_rgba(239,68,68,0.2)]" />
+              <span className="text-[10px] text-red-500">High</span>
+            </div>
           </div>
         </div>
       </Map>
