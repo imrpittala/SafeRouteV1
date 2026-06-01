@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { StyleSheet, View, TextInput, FlatList, TouchableOpacity, Text, Platform, Keyboard } from 'react-native';
 import { Menu, Mic, X, Clock, ArrowLeft, MoreVertical, Route } from 'lucide-react-native';
 import { COLORS, SPACING } from '../../theme/theme';
@@ -12,27 +12,48 @@ export const SearchBar = () => {
   const [isFocused, setIsFocused] = useState(false);
   const { destination, setDestination, userLocation, recentSearches, addRecentSearch, setRoutes } = useStore();
 
-  const searchPlaces = async (text: string) => {
+  const debounceTimeoutRef = useRef<any>(null);
+
+  useEffect(() => {
+    return () => {
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const searchPlaces = (text: string) => {
     setQuery(text);
+
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+
     if (text.length < 3) {
       setResults([]);
       return;
     }
 
-    try {
-      let url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(text)}.json?access_token=${MAPBOX_TOKEN}&autocomplete=true&country=in&limit=5`;
-      
-      // Prioritize results near the user if location is available
-      if (userLocation) {
-        url += `&proximity=${userLocation[0]},${userLocation[1]}`;
+    debounceTimeoutRef.current = setTimeout(async () => {
+      try {
+        let url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(text)}.json?access_token=${MAPBOX_TOKEN}&autocomplete=true&country=in&limit=5`;
+        
+        if (userLocation) {
+          url += `&proximity=${userLocation[0]},${userLocation[1]}`;
+        }
+        
+        console.log('[Search] Fetching autocomplete matches from Mapbox Geocoding API...');
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`HTTP error status: ${response.status}`);
+        }
+        const data = await response.json();
+        setResults(data.features || []);
+      } catch (error) {
+        console.error('[Search] Forward geocoding failed:', error);
+        setResults([]); // Fallback safely to empty results to keep UI active
       }
-      
-      const response = await fetch(url);
-      const data = await response.json();
-      setResults(data.features || []);
-    } catch (error) {
-      console.error('Geocoding error:', error);
-    }
+    }, 300);
   };
 
   const handleSelect = (item: any) => {
