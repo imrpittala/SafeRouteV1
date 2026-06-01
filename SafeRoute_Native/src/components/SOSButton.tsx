@@ -7,7 +7,7 @@ import NetInfo from '@react-native-community/netinfo';
 import * as Location from 'expo-location';
 
 const SOS_QUEUE_KEY = '@sos_queue';
-const BACKEND_URL = (process.env.EXPO_PUBLIC_BACKEND_URL || 'http://192.168.29.99:8000') + '/api/alerts/sos';
+const BACKEND_URL = (process.env.EXPO_PUBLIC_BACKEND_URL || 'http://20.40.61.11:8000') + '/api/alerts/sos';
 
 export const SOSButton = () => {
     const { isSOSActive, triggerSOS, cancelSOS } = useAppStore();

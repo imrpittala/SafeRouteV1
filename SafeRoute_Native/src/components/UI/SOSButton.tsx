@@ -4,7 +4,7 @@ import { AlertCircle } from 'lucide-react-native';
 import { COLORS } from '../../theme/theme';
 import { useStore } from '../../store/useStore';
 
-const BACKEND_WS = 'ws://192.168.29.99:8000/ws/sos';
+const BACKEND_WS = process.env.EXPO_PUBLIC_BACKEND_WS || 'ws://20.40.61.11:8000/ws/sos';
 
 export const SOSButton = () => {
   const { userLocation, destination, isNavigating } = useStore();

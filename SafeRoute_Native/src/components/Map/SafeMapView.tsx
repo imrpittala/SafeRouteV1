@@ -15,8 +15,8 @@ const USE_MOCK = false; // Set to false to connect to your live FastAPI backend
 const mapboxToken = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN || 'MAPBOX_PUBLIC_TOKEN_PLACEHOLDER';
 Mapbox.setAccessToken(mapboxToken);
 
-const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://192.168.29.99:8000';
-const BACKEND_WS = process.env.EXPO_PUBLIC_BACKEND_WS || 'ws://192.168.29.99:8000/ws/sos';
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://20.40.61.11:8000';
+const BACKEND_WS = process.env.EXPO_PUBLIC_BACKEND_WS || 'ws://20.40.61.11:8000/ws/sos';
 
 export const SafeMapView = () => {
   const { 
