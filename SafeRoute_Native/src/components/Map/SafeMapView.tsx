@@ -7,6 +7,7 @@ import { useStore } from '../../store/useStore';
 import { COLORS, SPACING } from '../../theme/theme';
 import axios from 'axios';
 import { MOCK_ROUTES } from './mockRouteData';
+import { useLocationTelemetry } from '../../hooks/useLocationTelemetry';
 
 const USE_MOCK = false; // Set to false to connect to your live FastAPI backend
 
@@ -24,6 +25,9 @@ export const SafeMapView = () => {
     isLoading, setIsLoading, isNavigating, setRouteBlocked
   } = useStore();
   const cameraRef = useRef<Camera>(null);
+
+  // Initialize live telemetry when user starts active navigation
+  useLocationTelemetry(isNavigating, 'commuter_dummy_123');
 
   useEffect(() => {
     // Request location permission

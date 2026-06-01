@@ -144,7 +144,7 @@ export const RouteDetails = () => {
           onPress={() => setActiveRoute('fastest')}
         >
           <View style={[styles.iconCircle, activeRoute === 'fastest' ? styles.iconCircleActiveFastest : styles.iconCircleInactive]}>
-            <Zap color={activeRoute === 'fastest' ? '#FFF' : COLORS.secondary} size={20} />
+            <Zap color={activeRoute === 'fastest' ? '#007AFF' : COLORS.secondary} size={20} />
           </View>
           <Text style={[styles.optionLabel, activeRoute === 'fastest' && styles.activeText]}>
             Fastest
@@ -160,7 +160,7 @@ export const RouteDetails = () => {
           onPress={() => setActiveRoute('safest')}
         >
           <View style={[styles.iconCircle, activeRoute === 'safest' ? styles.iconCircleActiveSafest : styles.iconCircleInactive]}>
-            <ShieldCheck color={activeRoute === 'safest' ? '#FFF' : COLORS.primary} size={20} />
+            <ShieldCheck color={activeRoute === 'safest' ? '#00B074' : COLORS.primary} size={20} />
           </View>
           <Text style={[styles.optionLabel, activeRoute === 'safest' && styles.activeText]}>
             Safest
@@ -379,12 +379,12 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.05)',
   },
   activeOptionFastest: {
-    backgroundColor: 'rgba(255, 149, 0, 0.12)',
+    backgroundColor: COLORS.secondary,
     borderColor: COLORS.secondary,
     shadowColor: COLORS.secondary,
   },
   activeOptionSafest: {
-    backgroundColor: 'rgba(52, 199, 89, 0.12)',
+    backgroundColor: COLORS.primary,
     borderColor: COLORS.primary,
     shadowColor: COLORS.primary,
   },
@@ -400,10 +400,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.05)',
   },
   iconCircleActiveFastest: {
-    backgroundColor: COLORS.secondary,
+    backgroundColor: '#FFF',
   },
   iconCircleActiveSafest: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: '#FFF',
   },
   optionLabel: {
     color: COLORS.textSecondary,
