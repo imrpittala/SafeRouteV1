@@ -327,6 +327,11 @@ def create_danger_polygon(lat: float, lng: float, radius_km: float = 0.2):
 
 @app.post("/api/routes/valhalla")
 async def get_valhalla_route(req: ValhallaRouteRequest):
+    # Log incoming coordinates for diagnosis
+    logger.info(
+        f"Received Valhalla route query: User ({req.user_lat}, {req.user_lng}) -> Destination ({req.dest_lat}, {req.dest_lng})"
+    )
+
     # Determine the midpoint to find nearby SOS alerts
     mid_lat = (req.user_lat + req.dest_lat) / 2
     mid_lng = (req.user_lng + req.dest_lng) / 2
@@ -381,26 +386,36 @@ async def get_valhalla_route(req: ValhallaRouteRequest):
         "generalize": 100 # Engine-Level Simplification
     }
 
-    valhalla_url = os.getenv("VALHALLA_URL", "http://localhost:8002/route")
+    # Verify the connection string uses the docker compose container name by default
+    valhalla_url = os.getenv("VALHALLA_URL") or "http://saferoute_valhalla:8002/route"
     
     fastest_data = None
     safest_data = None
     route_blocked = False
 
     def parse_valhalla(data):
-        if not data:
+        if not data or "trip" not in data:
             return None
-        trip = data.get("trip", {})
-        if trip.get("status") != 0:
+        trip = data["trip"]
+        if not isinstance(trip, dict) or trip.get("status") != 0:
+            return None
+        if "legs" not in trip or not trip["legs"]:
             return None
         leg = trip["legs"][0]
+        if "shape" not in leg:
+            return None
         encoded_shape = leg["shape"]
-        decoded_coords = polyline.decode(encoded_shape, 6)
+        try:
+            decoded_coords = polyline.decode(encoded_shape, 6)
+        except Exception as parse_err:
+            logger.error(f"Polyline decode error: {parse_err}")
+            return None
         geojson_coords = [[lng, lat] for lat, lng in decoded_coords]
         
-        # Manually apply global speed factor multiplier of 0.62 (speeds reduced by ~38%)
-        # Time = Distance / Speed. If speed is multiplied by 0.62, travel time is multiplied by 1 / 0.62 = 1.61
-        adjusted_weight = trip["summary"]["time"] * 1.61
+        summary = trip.get("summary", {})
+        time_val = summary.get("time", 0)
+        length_val = summary.get("length", 0)
+        adjusted_weight = time_val * 1.61
         
         return {
             "type": "Feature",
@@ -410,7 +425,7 @@ async def get_valhalla_route(req: ValhallaRouteRequest):
             },
             "properties": {
                 "weight": adjusted_weight,
-                "distance_meters": trip["summary"]["length"] * 1000
+                "distance_meters": length_val * 1000
             }
         }
 
@@ -418,18 +433,49 @@ async def get_valhalla_route(req: ValhallaRouteRequest):
         # 1. Fastest Route (No Avoidance)
         try:
             fastest_payload = {**base_payload}
+            logger.info(f"Forwarding fastest route request to Valhalla at {valhalla_url} with payload: {fastest_payload}")
             fastest_res = await client.post(valhalla_url, json=fastest_payload, timeout=5.0)
-            fastest_res.raise_for_status()
+            
+            # Handle HTTP errors gracefully
+            if fastest_res.status_code != 200:
+                try:
+                    error_body = fastest_res.json()
+                except Exception:
+                    error_body = fastest_res.text
+                logger.error(f"Valhalla returned HTTP {fastest_res.status_code}: {error_body}")
+                raise HTTPException(
+                    status_code=400 if fastest_res.status_code == 400 else 502,
+                    detail=f"Valhalla Engine Error: {error_body}"
+                )
+                
             fastest_data = fastest_res.json()
+        except httpx.ConnectError as ce:
+            logger.critical(f"Failed to connect to Valhalla engine at {valhalla_url}: {ce}")
+            raise HTTPException(status_code=503, detail="Valhalla routing engine is unreachable or starting up.")
+        except httpx.TimeoutException as te:
+            logger.error(f"Timeout querying Valhalla engine at {valhalla_url}: {te}")
+            raise HTTPException(status_code=504, detail="Valhalla routing request timed out.")
+        except HTTPException:
+            raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Valhalla Engine Error (Fastest): {str(e)}")
+            logger.exception(f"Unexpected error during Valhalla query: {e}")
+            raise HTTPException(status_code=500, detail=f"Valhalla routing engine query failed: {str(e)}")
             
         # 2. Safest Route (With Avoidance)
         if avoid_polygons:
             try:
                 safest_payload = {**base_payload, "avoid_polygons": avoid_polygons}
+                logger.info(f"Forwarding safest route request to Valhalla at {valhalla_url} with {len(avoid_polygons)} avoid polygons")
                 safest_res = await client.post(valhalla_url, json=safest_payload, timeout=5.0)
-                safest_res.raise_for_status()
+                
+                if safest_res.status_code != 200:
+                    try:
+                        error_body = safest_res.json()
+                    except Exception:
+                        error_body = safest_res.text
+                    logger.warning(f"Safest route query returned HTTP {safest_res.status_code}: {error_body}. Triggering fallback.")
+                    raise httpx.HTTPStatusError("Safest route request failed", request=safest_res.request, response=safest_res)
+                    
                 safest_data = safest_res.json()
             except Exception as e:
                 logger.warning(f"Safest route completely blocked by polygons or error: {e}. Trying alternate safety scoring fallback...")
@@ -438,53 +484,57 @@ async def get_valhalla_route(req: ValhallaRouteRequest):
                 # Fallback: Query alternates of the fastest route
                 try:
                     alternates_payload = {**base_payload, "alternates": 2}
+                    logger.info(f"Forwarding alternates fallback request to Valhalla at {valhalla_url}")
                     alt_res = await client.post(valhalla_url, json=alternates_payload, timeout=5.0)
-                    alt_res.raise_for_status()
-                    alt_data = alt_res.json()
                     
-                    # Extract candidates (fastest and alternates)
-                    candidates = []
-                    # 1. Add fastest route
-                    fastest_parsed = parse_valhalla(alt_data)
-                    if fastest_parsed:
-                        candidates.append((fastest_parsed, alt_data))
-                    
-                    # 2. Add alternate routes
-                    for alt_trip in alt_data.get("alternates", []):
-                        wrapped_alt = {"trip": alt_trip}
-                        alt_parsed = parse_valhalla(wrapped_alt)
-                        if alt_parsed:
-                            candidates.append((alt_parsed, wrapped_alt))
-                    
-                    # Score candidates
-                    best_candidate = None
-                    best_score = float('inf')
-                    
-                    for parsed_route, raw_route in candidates:
-                        coords = parsed_route["geometry"]["coordinates"] # list of [lng, lat]
+                    if alt_res.status_code == 200:
+                        alt_data = alt_res.json()
+                        # Extract candidates (fastest and alternates)
+                        candidates = []
+                        # 1. Add fastest route
+                        fastest_parsed = parse_valhalla(alt_data)
+                        if fastest_parsed:
+                            candidates.append((fastest_parsed, alt_data))
                         
-                        danger_score = 0.0
-                        for alert in active_sos_points:
-                            min_dist = float('inf')
-                            for pt in coords:
-                                dist = haversine(alert["lat"], alert["lng"], pt[1], pt[0])
-                                if dist < min_dist:
-                                    min_dist = dist
-                            if min_dist <= 300.0:
-                                danger_score += (300.0 - min_dist) / 300.0
+                        # 2. Add alternate routes
+                        for alt_trip in alt_data.get("alternates", []):
+                            wrapped_alt = {"trip": alt_trip}
+                            alt_parsed = parse_valhalla(wrapped_alt)
+                            if alt_parsed:
+                                candidates.append((alt_parsed, wrapped_alt))
                         
-                        if danger_score < best_score:
-                            best_score = danger_score
-                            best_candidate = raw_route
-                        elif danger_score == best_score:
-                            if best_candidate is None or parsed_route["properties"]["weight"] < parse_valhalla(best_candidate)["properties"]["weight"]:
+                        # Score candidates
+                        best_candidate = None
+                        best_score = float('inf')
+                        
+                        for parsed_route, raw_route in candidates:
+                            coords = parsed_route["geometry"]["coordinates"] # list of [lng, lat]
+                            
+                            danger_score = 0.0
+                            for alert in active_sos_points:
+                                min_dist = float('inf')
+                                for pt in coords:
+                                    dist = haversine(alert["lat"], alert["lng"], pt[1], pt[0])
+                                    if dist < min_dist:
+                                        min_dist = dist
+                                if min_dist <= 300.0:
+                                    danger_score += (300.0 - min_dist) / 300.0
+                            
+                            if danger_score < best_score:
+                                best_score = danger_score
                                 best_candidate = raw_route
-                    
-                    safest_data = best_candidate
-                    logger.info(f"Alternate routing fallback selected safest route with danger score: {best_score}")
-                    
+                            elif danger_score == best_score:
+                                parsed_best = parse_valhalla(best_candidate)
+                                if best_candidate is None or (parsed_best and parsed_route["properties"]["weight"] < parsed_best["properties"]["weight"]):
+                                    best_candidate = raw_route
+                        
+                        safest_data = best_candidate
+                        logger.info(f"Alternate routing fallback selected safest route with danger score: {best_score}")
+                    else:
+                        logger.error(f"Fallback alternates request returned status {alt_res.status_code}. Defaulting to fastest route.")
+                        safest_data = fastest_data
                 except Exception as fallback_err:
-                    logger.error(f"Fallback alternate routing failed: {fallback_err}")
+                    logger.error(f"Fallback alternate routing failed: {fallback_err}. Defaulting to fastest route.")
                     safest_data = fastest_data
         else:
             safest_data = fastest_data
