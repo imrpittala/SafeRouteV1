@@ -359,12 +359,12 @@ async def get_valhalla_route(req: ValhallaRouteRequest):
         dist_to_start_km = dist_to_start / 1000.0
         dist_to_dest_km = dist_to_dest / 1000.0
         
-        # If the SOS is within 0.4 km of start or destination, skip it so Valhalla doesn't fail
-        if dist_to_start_km < 0.4 or dist_to_dest_km < 0.4:
+        # If the SOS is within 0.12 km of start or destination, skip it so Valhalla doesn't fail
+        if dist_to_start_km < 0.12 or dist_to_dest_km < 0.12:
             logger.info(f"Skipping avoid polygon for SOS alert close to route endpoints (Start: {dist_to_start_km:.3f} km, Dest: {dist_to_dest_km:.3f} km)")
             continue
             
-        danger_zone = create_danger_polygon(alert["lat"], alert["lng"], radius_km=0.3)
+        danger_zone = create_danger_polygon(alert["lat"], alert["lng"], radius_km=0.1)
         avoid_polygons.append(danger_zone)
 
     base_payload = {
