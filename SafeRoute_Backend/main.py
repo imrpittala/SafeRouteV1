@@ -369,8 +369,8 @@ async def get_valhalla_route(req: ValhallaRouteRequest):
 
     base_payload = {
         "locations": [
-            {"lat": req.user_lat, "lon": req.user_lng, "type": "break"},
-            {"lat": req.dest_lat, "lon": req.dest_lng, "type": "break"}
+            {"lat": req.user_lat, "lon": req.user_lng, "type": "break", "radius": 300},
+            {"lat": req.dest_lat, "lon": req.dest_lng, "type": "break", "radius": 300}
         ],
         "costing": "auto",
         "costing_options": {
