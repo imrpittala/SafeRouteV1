@@ -8,6 +8,7 @@ import { COLORS, SPACING } from '../../theme/theme';
 import axios from 'axios';
 import { MOCK_ROUTES } from './mockRouteData';
 import { useLocationTelemetry } from '../../hooks/useLocationTelemetry';
+import { DestinationSheet } from './DestinationSheet';
 
 const USE_MOCK = false; // Set to false to connect to your live FastAPI backend
 
@@ -20,7 +21,7 @@ const BACKEND_WS = process.env.EXPO_PUBLIC_BACKEND_WS || 'ws://20.40.61.11:8000/
 
 export const SafeMapView = () => {
   const { 
-    userLocation, destination, setUserLocation, 
+    userLocation, destination, selectedPoi, origin, isRoutingMode, setUserLocation, 
     routes, setRoutes, activeRoute, sosAlerts, addSosAlert, removeSosAlert,
     isLoading, setIsLoading, isNavigating, setRouteBlocked
   } = useStore();
@@ -96,10 +97,12 @@ export const SafeMapView = () => {
       clearTimeout(routeDebounceRef.current);
     }
 
-    if (userLocation && destination) {
+    if (isRoutingMode && destination) {
       routeDebounceRef.current = setTimeout(() => {
         fetchRoutes();
-      }, 400); // 400ms debounce to allow rapid state updates to settle
+      }, 400);
+    } else if (!isRoutingMode) {
+      setRoutes(null);
     }
 
     return () => {
@@ -107,10 +110,13 @@ export const SafeMapView = () => {
         clearTimeout(routeDebounceRef.current);
       }
     };
-  }, [destination, sosAlerts]);
+  }, [destination, isRoutingMode, origin, sosAlerts]);
 
   const fetchRoutes = async () => {
-    if (!userLocation || !destination) return;
+    if (!isRoutingMode || !destination) return;
+    
+    const startLoc = origin || userLocation;
+    if (!startLoc) return;
     
     setIsLoading(true);
     
@@ -118,7 +124,7 @@ export const SafeMapView = () => {
       setTimeout(() => {
         setRoutes(MOCK_ROUTES);
         cameraRef.current?.fitBounds(
-          userLocation,
+          startLoc,
           destination,
           [50, 50, 50, 50],
           1000
@@ -130,8 +136,8 @@ export const SafeMapView = () => {
 
     try {
       const res = await axios.post(`${BACKEND_URL}/api/routes/valhalla`, {
-        user_lat: userLocation[1],
-        user_lng: userLocation[0],
+        user_lat: startLoc[1],
+        user_lng: startLoc[0],
         dest_lat: destination[1],
         dest_lng: destination[0]
       });
@@ -148,7 +154,7 @@ export const SafeMapView = () => {
       setRouteBlocked(res.data.route_blocked || false);
       
       cameraRef.current?.fitBounds(
-        userLocation,
+        startLoc,
         destination,
         [50, 50, 50, 50],
         1000
@@ -197,7 +203,7 @@ export const SafeMapView = () => {
     <View style={styles.container}>
       <MapView
         style={styles.map}
-        styleURL={StyleURL.Dark}
+        styleURL={StyleURL.Streets}
         logoEnabled={false}
         attributionEnabled={false}
       >
@@ -217,9 +223,9 @@ export const SafeMapView = () => {
             <LineLayer
               id="fastestLayer"
               style={{
-                lineColor: COLORS.secondary,
-                lineWidth: activeRoute === 'fastest' ? 6 : 4,
-                lineOpacity: activeRoute === 'fastest' ? 1 : 0.5,
+                lineColor: '#007AFF', // Bright Blue
+                lineWidth: activeRoute === 'fastest' ? 8 : 5,
+                lineOpacity: activeRoute === 'fastest' ? 1 : 0.4,
                 lineCap: 'round',
                 lineJoin: 'round',
               }}
@@ -232,9 +238,9 @@ export const SafeMapView = () => {
             <LineLayer
               id="safestLayer"
               style={{
-                lineColor: COLORS.primary,
-                lineWidth: activeRoute === 'safest' ? 6 : 4,
-                lineOpacity: activeRoute === 'safest' ? 1 : 0.5,
+                lineColor: '#5AC8FA', // Cyan
+                lineWidth: activeRoute === 'safest' ? 8 : 5,
+                lineOpacity: activeRoute === 'safest' ? 1 : 0.4,
                 lineCap: 'round',
                 lineJoin: 'round',
                 lineBlur: activeRoute === 'safest' ? 2 : 0, // Glowing effect
@@ -296,6 +302,17 @@ export const SafeMapView = () => {
           </PointAnnotation>
         ))}
 
+        {(selectedPoi || destination) && (
+          <PointAnnotation
+            id="destination-pin"
+            coordinate={selectedPoi || destination || [0,0]}
+          >
+            <View style={styles.destinationPinContainer}>
+              <View style={styles.destinationPinInner} />
+            </View>
+          </PointAnnotation>
+        )}
+
         <UserLocation
           visible={true}
           onUpdate={onUserLocationUpdate}
@@ -327,6 +344,8 @@ export const SafeMapView = () => {
           <ActivityIndicator size="large" color={COLORS.primary} />
         </View>
       )}
+
+      <DestinationSheet />
     </View>
   );
 };
@@ -352,6 +371,22 @@ const styles = StyleSheet.create({
     height: 12,
     borderRadius: 6,
     backgroundColor: COLORS.danger,
+    borderWidth: 2,
+    borderColor: '#FFF',
+  },
+  destinationPinContainer: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(234, 67, 53, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  destinationPinInner: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#EA4335',
     borderWidth: 2,
     borderColor: '#FFF',
   },

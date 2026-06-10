@@ -10,7 +10,13 @@ export const SearchBar = () => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<any[]>([]);
   const [isFocused, setIsFocused] = useState(false);
-  const { destination, setDestination, userLocation, recentSearches, addRecentSearch, setRoutes } = useStore();
+  const [originQuery, setOriginQuery] = useState('Your Location');
+  const [activeInput, setActiveInput] = useState<'main' | 'origin' | 'destination'>('main');
+
+  const { 
+    destination, setDestination, userLocation, recentSearches, addRecentSearch, setRoutes,
+    selectedPoi, setSelectedPoi, isRoutingMode, setIsRoutingMode, searchQuery, setSearchQuery, origin, setOrigin
+  } = useStore();
 
   const debounceTimeoutRef = useRef<any>(null);
 
@@ -23,7 +29,12 @@ export const SearchBar = () => {
   }, []);
 
   const searchPlaces = (text: string) => {
-    setQuery(text);
+    if (activeInput === 'origin') {
+      setOriginQuery(text);
+    } else {
+      setQuery(text);
+      setSearchQuery(text);
+    }
 
     if (debounceTimeoutRef.current) {
       clearTimeout(debounceTimeoutRef.current);
@@ -58,11 +69,24 @@ export const SearchBar = () => {
 
   const handleSelect = (item: any) => {
     const [lon, lat] = item.center;
-    setDestination([lon, lat]);
-    setQuery(item.place_name);
+    
+    if (activeInput === 'origin') {
+      setOrigin([lon, lat]);
+      setOriginQuery(item.place_name);
+    } else if (activeInput === 'main') {
+      setSelectedPoi([lon, lat]);
+      setSearchQuery(item.place_name);
+      setQuery(item.place_name);
+    } else if (activeInput === 'destination') {
+      setDestination([lon, lat]);
+      setSearchQuery(item.place_name);
+      setQuery(item.place_name);
+    }
+
     setResults([]);
     Keyboard.dismiss();
     setIsFocused(false);
+    setActiveInput('main');
     
     addRecentSearch({
       id: item.id,
@@ -76,15 +100,15 @@ export const SearchBar = () => {
     setResults([]);
   };
 
-  // If a destination is selected, show the Route Planning Header instead of Search
-  if (destination) {
+  // If routing mode is active, show the Route Planning Header
+  if (isRoutingMode) {
     return (
       <View style={styles.plannerContainer}>
         <View style={styles.plannerHeader}>
           <TouchableOpacity 
             style={styles.backButton}
             onPress={() => {
-              setDestination(null);
+              setIsRoutingMode(false);
               setRoutes(null);
             }}
           >
@@ -94,12 +118,35 @@ export const SearchBar = () => {
           <View style={styles.plannerInputs}>
             <View style={styles.plannerRow}>
               <View style={[styles.dot, { backgroundColor: COLORS.primary }]} />
-              <Text style={styles.plannerText}>Your Location</Text>
+              <TextInput
+                style={styles.plannerTextInput}
+                value={originQuery}
+                onChangeText={(text) => {
+                  setActiveInput('origin');
+                  searchPlaces(text);
+                }}
+                onFocus={() => {
+                  setActiveInput('origin');
+                  if (originQuery === 'Your Location') setOriginQuery('');
+                }}
+                placeholder="Choose starting point"
+                placeholderTextColor={COLORS.textSecondary}
+              />
             </View>
             <View style={styles.plannerDivider} />
             <View style={styles.plannerRow}>
               <View style={[styles.dot, { backgroundColor: COLORS.danger }]} />
-              <Text style={styles.plannerTextBold} numberOfLines={1}>{query || 'Destination'}</Text>
+              <TextInput
+                style={styles.plannerTextInput}
+                value={searchQuery || query}
+                onChangeText={(text) => {
+                  setActiveInput('destination');
+                  searchPlaces(text);
+                }}
+                onFocus={() => setActiveInput('destination')}
+                placeholder="Choose destination"
+                placeholderTextColor={COLORS.textSecondary}
+              />
             </View>
           </View>
           
@@ -107,6 +154,21 @@ export const SearchBar = () => {
             <MoreVertical color={COLORS.textSecondary} size={24} />
           </TouchableOpacity>
         </View>
+
+        {results.length > 0 && (
+          <View style={styles.plannerResultsContainer}>
+            <FlatList
+              data={results}
+              keyExtractor={(item) => item.id}
+              keyboardShouldPersistTaps="handled"
+              renderItem={({ item }) => (
+                <TouchableOpacity style={styles.resultItem} onPress={() => handleSelect(item)}>
+                  <Text style={styles.resultText} numberOfLines={1}>{item.place_name}</Text>
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        )}
       </View>
     );
   }
@@ -122,9 +184,15 @@ export const SearchBar = () => {
           style={styles.input}
           placeholder="Search here"
           placeholderTextColor={COLORS.textSecondary}
-          value={query}
-          onChangeText={searchPlaces}
-          onFocus={() => setIsFocused(true)}
+          value={query || searchQuery}
+          onChangeText={(text) => {
+            setActiveInput('main');
+            searchPlaces(text);
+          }}
+          onFocus={() => {
+            setIsFocused(true);
+            setActiveInput('main');
+          }}
         />
         
         {query.length > 0 ? (
@@ -278,14 +346,17 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.1)',
     marginLeft: 16,
   },
-  plannerText: {
-    color: COLORS.textSecondary,
-    fontSize: 15,
-  },
-  plannerTextBold: {
+  plannerTextInput: {
     color: '#FFF',
     fontSize: 15,
+    flex: 1,
+    paddingVertical: 0,
     fontWeight: 'bold',
+  },
+  plannerResultsContainer: {
+    maxHeight: 250,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.1)',
   },
   resultItem: {
     padding: SPACING.md,

@@ -3,6 +3,10 @@ import { create } from 'zustand';
 interface MapState {
   userLocation: [number, number] | null;
   destination: [number, number] | null;
+  selectedPoi: [number, number] | null;
+  origin: [number, number] | null;
+  isRoutingMode: boolean;
+  searchQuery: string;
   activeRoute: 'fastest' | 'safest';
   routes: {
     fastest: any;
@@ -12,6 +16,10 @@ interface MapState {
   sosAlerts: Array<{ id: string; location: [number, number] }>;
   setUserLocation: (location: [number, number]) => void;
   setDestination: (location: [number, number] | null) => void;
+  setSelectedPoi: (poi: [number, number] | null) => void;
+  setOrigin: (location: [number, number] | null) => void;
+  setIsRoutingMode: (mode: boolean) => void;
+  setSearchQuery: (query: string) => void;
   setActiveRoute: (route: 'fastest' | 'safest') => void;
   setRoutes: (routes: { fastest: any; safest: any } | null) => void;
   setRouteBlocked: (blocked: boolean) => void;
@@ -28,12 +36,20 @@ interface MapState {
 export const useStore = create<MapState>((set) => ({
   userLocation: null,
   destination: null,
+  selectedPoi: null,
+  origin: null,
+  isRoutingMode: false,
+  searchQuery: '',
   activeRoute: 'safest',
   routes: null,
   routeBlocked: false,
   sosAlerts: [],
   setUserLocation: (location) => set({ userLocation: location }),
   setDestination: (location) => set({ destination: location }),
+  setSelectedPoi: (poi) => set({ selectedPoi: poi }),
+  setOrigin: (location) => set({ origin: location }),
+  setIsRoutingMode: (mode) => set({ isRoutingMode: mode }),
+  setSearchQuery: (query) => set({ searchQuery: query }),
   setActiveRoute: (route) => set({ activeRoute: route }),
   setRoutes: (routes) => set({ routes }),
   setRouteBlocked: (blocked) => set({ routeBlocked: blocked }),
