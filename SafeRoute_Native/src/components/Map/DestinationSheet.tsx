@@ -1,17 +1,25 @@
 import React, { useEffect, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Image } from 'react-native';
 import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
-import { Navigation2, Share } from 'lucide-react-native';
+import { Navigation2, Share, Bookmark } from 'lucide-react-native';
 import { usePlaceDetails } from '../../hooks/usePlaceDetails';
 import { COLORS as FallbackColors, useThemeColors, SPACING } from '../../theme/theme';
 import { useStore } from '../../store/useStore';
 
 export const DestinationSheet = () => {
   const COLORS = useThemeColors();
-  const { selectedPoi, setSelectedPoi, setDestination, setIsRoutingMode } = useStore();
+  const { selectedPoi, setSelectedPoi, setDestination, setIsRoutingMode, user, setAuthSheetVisible } = useStore();
   const bottomSheetRef = useRef<BottomSheet>(null);
   const snapPoints = useMemo(() => ['25%', '50%'], []);
   const { isLoading, error, data } = usePlaceDetails(selectedPoi);
+
+  const handleSavePlace = () => {
+    if (!user) {
+      setAuthSheetVisible(true);
+      return;
+    }
+    // TODO: implement saving logic here
+  };
 
   useEffect(() => {
     if (selectedPoi) {
@@ -71,6 +79,13 @@ export const DestinationSheet = () => {
                   <Share size={24} color="#FFF" />
                 </View>
                 <Text style={styles.actionText}>Share</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.actionButton} onPress={handleSavePlace}>
+                <View style={styles.iconCircle}>
+                  <Bookmark size={24} color="#FFF" />
+                </View>
+                <Text style={styles.actionText}>Save</Text>
               </TouchableOpacity>
             </View>
 

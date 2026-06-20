@@ -14,7 +14,7 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const COLORS = useThemeColors();
-  const { user, isLiveSharing, themePreference, setActiveSettingsView, signIn } = useStore();
+  const { user, isLiveSharing, themePreference, setActiveSettingsView, setAuthSheetVisible } = useStore();
   const [isRendered, setIsRendered] = useState(isOpen);
   const slideAnim = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -74,17 +74,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           {user ? (
             <>
               <View style={styles.profileAvatar}>
-                <Text style={styles.profileText}>{user.name.charAt(0)}</Text>
+                <Text style={styles.profileText}>{user.displayName ? user.displayName.charAt(0) : 'U'}</Text>
               </View>
               <View style={styles.profileInfo}>
-                <Text style={styles.profileName}>{user.name}</Text>
-                <Text style={styles.profileSubtitle}>SafeRoute Pioneer • {user.safeMiles.toLocaleString()} Safe Miles</Text>
+                <Text style={styles.profileName}>{user.displayName || 'Urban Commuter'}</Text>
+                <Text style={styles.profileSubtitle}>SafeRoute Pioneer • 1,200 Safe Miles</Text>
               </View>
             </>
           ) : (
             <TouchableOpacity 
               style={styles.signInButton} 
-              onPress={() => signIn()}
+              onPress={() => {
+                onClose();
+                setAuthSheetVisible(true);
+              }}
             >
               <View style={styles.profileAvatarGhost}>
                 <LogIn color="#FFF" size={24} />

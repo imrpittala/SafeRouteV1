@@ -12,8 +12,9 @@ module.exports = {
       }
     },
     android: {
-      package: "com.anonymous.SafeRoute",
+      package: "com.saferoute.app",
       usesCleartextTraffic: true,
+      googleServicesFile: "./google-services.json",
       config: {
         googleMaps: {
           apiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || ""
@@ -35,7 +36,10 @@ module.exports = {
           RNMapboxMapsImpl: "mapbox",
           RNMapboxMapsDownloadToken: "MAPBOX_DOWNLOADS_TOKEN_PLACEHOLDER"
         }
-      ]
+      ],
+      "@react-native-firebase/app",
+      "@react-native-firebase/auth",
+      "@react-native-google-signin/google-signin"
     ]
   }
 };

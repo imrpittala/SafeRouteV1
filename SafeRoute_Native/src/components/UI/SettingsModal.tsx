@@ -158,12 +158,12 @@ export const SettingsModal: React.FC = () => {
             {user ? (
               <View style={styles.profileCard}>
                 <View style={styles.profileAvatarLarge}>
-                  <Text style={styles.profileAvatarText}>{user.name.charAt(0)}</Text>
+                  <Text style={styles.profileAvatarText}>{user.displayName ? user.displayName.charAt(0) : 'U'}</Text>
                 </View>
-                <Text style={styles.profileNameLarge}>{user.name}</Text>
+                <Text style={styles.profileNameLarge}>{user.displayName || 'Urban Commuter'}</Text>
                 <Text style={styles.profileEmail}>{user.email}</Text>
                 <View style={styles.statsBox}>
-                  <Text style={styles.statsNumber}>{user.safeMiles.toLocaleString()}</Text>
+                  <Text style={styles.statsNumber}>1,200</Text>
                   <Text style={styles.statsLabel}>Safe Miles Navigated</Text>
                 </View>
                 <TouchableOpacity style={styles.dangerBtn} onPress={() => { signOut(); setActiveSettingsView(null); }}>

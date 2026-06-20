@@ -3,7 +3,7 @@ import { StyleSheet, View, Platform, ActivityIndicator, TouchableOpacity, Text, 
 import Mapbox, { MapView, Camera, UserLocation, StyleURL, ShapeSource, LineLayer, PointAnnotation } from '@rnmapbox/maps';
 import * as Location from 'expo-location';
 
-import { LocateFixed, ArrowLeft, X, ArrowUpDown, Search, Menu, Clock, MoreVertical, Mic, Home, Briefcase, MapPin } from 'lucide-react-native';
+import { LocateFixed, ArrowLeft, X, ArrowUpDown, Search, Menu, Clock, MoreVertical, Mic, Home, Briefcase, MapPin, Bookmark } from 'lucide-react-native';
 
 import { useStore } from '../../store/useStore';
 import { COLORS as FallbackColors, useThemeColors, SPACING } from '../../theme/theme';
@@ -35,7 +35,8 @@ export const SafeMapView = () => {
     searchQuery: globalSearchQuery, activeRoute, routes, routeBlocked,
     setUserLocation, setDestination, setSelectedPoi, setOrigin, setIsRoutingMode, 
     setSearchQuery: setGlobalSearchQuery, setActiveRoute, setRoutes, isLoading, setIsLoading,
-    isNavigating, savedPlaces, sosAlerts, addSosAlert, removeSosAlert, setRouteBlocked
+    isNavigating, savedPlaces, sosAlerts, addSosAlert, removeSosAlert, setRouteBlocked, isAuthSheetVisible,
+    user, setAuthSheetVisible
   } = useStore();
   const cameraRef = useRef<Camera>(null);
 
@@ -424,6 +425,19 @@ export const SafeMapView = () => {
               <Text style={styles.resultText} numberOfLines={1}>
                  {item.place_name || item.text}
               </Text>
+              <TouchableOpacity 
+                onPress={(e) => {
+                  e.stopPropagation();
+                  if (!user) {
+                    setAuthSheetVisible(true);
+                    return;
+                  }
+                  // TODO: Save logic
+                }} 
+                style={{ marginLeft: 'auto', padding: SPACING.xs }}
+              >
+                 <Bookmark color={COLORS.textSecondary} size={20} />
+              </TouchableOpacity>
             </TouchableOpacity>
           )}
         />
@@ -601,7 +615,7 @@ export const SafeMapView = () => {
          {uiState === 'ROUTING' && !isNavigating && renderRoutingHeader()}
       </View>
 
-      {userLocation && uiState !== 'SEARCH' && (
+      {userLocation && uiState !== 'SEARCH' && !isAuthSheetVisible && (
         <TouchableOpacity 
           style={[styles.recenterButton, isNavigating ? { bottom: 120 } : { bottom: destination ? 340 : 100 }]}
           onPress={() => {

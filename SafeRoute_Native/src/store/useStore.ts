@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { FirebaseAuthTypes } from '@react-native-firebase/auth';
+import { apiClient } from '../api/client';
 
 interface MapState {
   userLocation: [number, number] | null;
@@ -34,17 +36,21 @@ interface MapState {
   clearRecentSearches: () => void;
   
   // Settings & Sidebar State
-  user: { name: string; email: string; safeMiles: number } | null;
-  signIn: () => void;
+  user: FirebaseAuthTypes.User | null;
+  isAuthenticated: boolean;
+  isAuthSheetVisible: boolean;
+  setUser: (user: FirebaseAuthTypes.User | null) => void;
+  setAuthSheetVisible: (visible: boolean) => void;
   signOut: () => void;
+  fetchUserData: () => Promise<void>;
   
   savedPlaces: { id: string; place_name: string; center: [number, number]; label: 'Home' | 'Work' | 'Custom' | null; customLabel?: string }[];
-  addSavedPlace: (place: { id: string; place_name: string; center: [number, number]; label: 'Home' | 'Work' | 'Custom' | null; customLabel?: string }) => void;
-  removeSavedPlace: (id: string) => void;
+  addSavedPlace: (place: { id: string; place_name: string; center: [number, number]; label: 'Home' | 'Work' | 'Custom' | null; customLabel?: string }) => Promise<void>;
+  removeSavedPlace: (id: string) => Promise<void>;
   
   sosContacts: { id: string; name: string; phone: string; isEnabled: boolean }[];
-  addSosContact: (contact: { id: string; name: string; phone: string; isEnabled: boolean }) => void;
-  removeSosContact: (id: string) => void;
+  addSosContact: (contact: { id: string; name: string; phone: string; isEnabled: boolean }) => Promise<void>;
+  removeSosContact: (id: string) => Promise<void>;
   toggleSosContact: (id: string) => void;
   
   isLiveSharing: boolean;
@@ -98,16 +104,69 @@ export const useStore = create<MapState>((set) => ({
 
   // Settings & Sidebar Implementation
   user: null,
-  signIn: () => set({ user: { name: 'Urban Commuter', email: 'urban@example.com', safeMiles: 1200 } }),
-  signOut: () => set({ user: null }),
+  isAuthenticated: false,
+  isAuthSheetVisible: false,
+  setUser: (user) => set({ user, isAuthenticated: !!user, isAuthSheetVisible: false }),
+  setAuthSheetVisible: (visible) => set({ isAuthSheetVisible: visible }),
+  signOut: () => set({ user: null, isAuthenticated: false, savedPlaces: [], sosContacts: [] }),
+  
+  fetchUserData: async () => {
+    try {
+      const response = await apiClient.get('/users/me/data');
+      if (response.data) {
+        set({ 
+          savedPlaces: response.data.savedPlaces || [], 
+          sosContacts: response.data.sosContacts || [] 
+        });
+      }
+    } catch (error) {
+      console.warn('Failed to fetch user data', error);
+    }
+  },
   
   savedPlaces: [],
-  addSavedPlace: (place) => set((state) => ({ savedPlaces: [...state.savedPlaces, place] })),
-  removeSavedPlace: (id) => set((state) => ({ savedPlaces: state.savedPlaces.filter(p => p.id !== id) })),
+  addSavedPlace: async (place) => {
+    try {
+      const response = await apiClient.post('/users/me/places', place);
+      if (response.status === 200 || response.status === 201) {
+        set((state) => ({ savedPlaces: [...state.savedPlaces, place] }));
+      }
+    } catch (error) {
+      console.warn('Failed to save place to cloud', error);
+    }
+  },
+  removeSavedPlace: async (id) => {
+    try {
+      const response = await apiClient.delete(`/users/me/places/${id}`);
+      if (response.status === 200 || response.status === 204) {
+        set((state) => ({ savedPlaces: state.savedPlaces.filter(p => p.id !== id) }));
+      }
+    } catch (error) {
+      console.warn('Failed to remove place from cloud', error);
+    }
+  },
   
   sosContacts: [],
-  addSosContact: (contact) => set((state) => ({ sosContacts: [...state.sosContacts, contact] })),
-  removeSosContact: (id) => set((state) => ({ sosContacts: state.sosContacts.filter(c => c.id !== id) })),
+  addSosContact: async (contact) => {
+    try {
+      const response = await apiClient.post('/users/me/contacts', contact);
+      if (response.status === 200 || response.status === 201) {
+        set((state) => ({ sosContacts: [...state.sosContacts, contact] }));
+      }
+    } catch (error) {
+      console.warn('Failed to save SOS contact to cloud', error);
+    }
+  },
+  removeSosContact: async (id) => {
+    try {
+      const response = await apiClient.delete(`/users/me/contacts/${id}`);
+      if (response.status === 200 || response.status === 204) {
+        set((state) => ({ sosContacts: state.sosContacts.filter(c => c.id !== id) }));
+      }
+    } catch (error) {
+      console.warn('Failed to remove SOS contact from cloud', error);
+    }
+  },
   toggleSosContact: (id) => set((state) => ({
     sosContacts: state.sosContacts.map(c => c.id === id ? { ...c, isEnabled: !c.isEnabled } : c)
   })),

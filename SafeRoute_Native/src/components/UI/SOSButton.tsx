@@ -8,10 +8,17 @@ const BACKEND_WS = process.env.EXPO_PUBLIC_BACKEND_WS || 'ws://20.40.61.11:8000/
 
 export const SOSButton = () => {
   const COLORS = useThemeColors();
-  const { userLocation, destination, isNavigating } = useStore();
+  const { userLocation, destination, isNavigating, user, isAuthSheetVisible, setAuthSheetVisible } = useStore();
   const [isSending, setIsSending] = React.useState(false);
 
+  if (isAuthSheetVisible) return null;
+
   const handleSOS = () => {
+    if (!user) {
+      setAuthSheetVisible(true);
+      return;
+    }
+
     if (isSending) return;
     if (!userLocation) {
       Alert.alert('Error', 'Location not available');
