@@ -3,10 +3,11 @@ import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Image } fr
 import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
 import { Navigation2, Share } from 'lucide-react-native';
 import { usePlaceDetails } from '../../hooks/usePlaceDetails';
-import { COLORS, SPACING } from '../../theme/theme';
+import { COLORS as FallbackColors, useThemeColors, SPACING } from '../../theme/theme';
 import { useStore } from '../../store/useStore';
 
 export const DestinationSheet = () => {
+  const COLORS = useThemeColors();
   const { selectedPoi, setSelectedPoi, setDestination, setIsRoutingMode } = useStore();
   const bottomSheetRef = useRef<BottomSheet>(null);
   const snapPoints = useMemo(() => ['25%', '50%'], []);
@@ -33,8 +34,8 @@ export const DestinationSheet = () => {
       ref={bottomSheetRef}
       index={-1} // Closed by default
       snapPoints={snapPoints}
-      enablePanDownToClose={true}
-      backgroundStyle={styles.bottomSheetBackground}
+      enablePanDownToClose={false}
+      backgroundStyle={[styles.bottomSheetBackground, { backgroundColor: COLORS.surface }]}
       handleIndicatorStyle={styles.handleIndicator}
     >
       <BottomSheetView style={styles.contentContainer}>
@@ -100,7 +101,7 @@ export const DestinationSheet = () => {
 
 const styles = StyleSheet.create({
   bottomSheetBackground: {
-    backgroundColor: COLORS.surface,
+    // Background color is handled inline via backgroundStyle
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     shadowColor: '#000',
@@ -110,7 +111,7 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   handleIndicator: {
-    backgroundColor: COLORS.textSecondary,
+    backgroundColor: FallbackColors.textSecondary,
     width: 40,
   },
   contentContainer: {
@@ -127,16 +128,16 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: SPACING.md,
-    color: COLORS.textSecondary,
+    color: FallbackColors.textSecondary,
     fontSize: 16,
   },
   errorText: {
-    color: COLORS.danger,
+    color: FallbackColors.danger,
     fontSize: 16,
     textAlign: 'center',
   },
   placeholderText: {
-    color: COLORS.textSecondary,
+    color: FallbackColors.textSecondary,
     fontSize: 16,
     textAlign: 'center',
   },
@@ -146,7 +147,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: FallbackColors.text,
   },
   actionsRow: {
     flexDirection: 'row',
@@ -161,7 +162,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: COLORS.primary,
+    backgroundColor: FallbackColors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: SPACING.xs,
@@ -172,7 +173,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   actionText: {
-    color: COLORS.text,
+    color: FallbackColors.text,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -197,12 +198,12 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: FallbackColors.text,
     marginBottom: SPACING.sm,
   },
   description: {
     fontSize: 14,
-    color: COLORS.textSecondary,
+    color: FallbackColors.textSecondary,
     lineHeight: 20,
   },
 });

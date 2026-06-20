@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Dimensions, Platform } from 'react-native';
-import { COLORS, SPACING } from '../../theme/theme';
+import { COLORS as FallbackColors, useThemeColors, SPACING } from '../../theme/theme';
 import { useStore } from '../../store/useStore';
 import { Zap, ShieldCheck, X, Navigation, ArrowUpRight, AlertTriangle } from 'lucide-react-native';
 
 const { width } = Dimensions.get('window');
 
 export const RouteDetails = () => {
+  const COLORS = useThemeColors();
   const { 
     activeRoute, setActiveRoute, routes, setRoutes, destination, 
     isLoading, isNavigating, setIsNavigating, setDestination, routeBlocked
@@ -58,9 +59,12 @@ export const RouteDetails = () => {
           <TouchableOpacity 
             style={styles.closeNavButton}
             onPress={() => {
-              setIsNavigating(false);
-              setDestination(null);
-              setRoutes(null);
+              const store = useStore.getState();
+              store.setIsNavigating(false);
+              store.setDestination(null);
+              store.setRoutes(null);
+              store.setIsRoutingMode(false);
+              store.setSelectedPoi(null);
             }}
           >
             <X color="#FFF" size={28} />
@@ -236,7 +240,7 @@ const styles = StyleSheet.create({
     top: Platform.OS === 'ios' ? 60 : 40,
     left: SPACING.md,
     right: SPACING.md,
-    backgroundColor: COLORS.secondary,
+    backgroundColor: FallbackColors.secondary,
     borderRadius: 16,
     padding: SPACING.lg,
     flexDirection: 'row',
@@ -287,7 +291,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   speedUnit: {
-    color: COLORS.textSecondary,
+    color: FallbackColors.textSecondary,
     fontSize: 10,
     marginTop: -2,
   },
@@ -319,19 +323,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: COLORS.danger,
+    borderColor: FallbackColors.danger,
   },
   navInfo: {
     flex: 1,
     marginLeft: SPACING.md,
   },
   navTimeRemaining: {
-    color: COLORS.danger, // Red text for ETA like Mappls
+    color: FallbackColors.danger, // Red text for ETA like Mappls
     fontSize: 26,
     fontWeight: 'bold',
   },
   navDistanceETA: {
-    color: COLORS.textSecondary,
+    color: FallbackColors.textSecondary,
     fontSize: 14,
     marginTop: 2,
   },
@@ -351,7 +355,7 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
   },
   title: {
-    color: COLORS.text,
+    color: FallbackColors.text,
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: SPACING.md,
@@ -379,14 +383,14 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.05)',
   },
   activeOptionFastest: {
-    backgroundColor: COLORS.secondary,
-    borderColor: COLORS.secondary,
-    shadowColor: COLORS.secondary,
+    backgroundColor: FallbackColors.secondary,
+    borderColor: FallbackColors.secondary,
+    shadowColor: FallbackColors.secondary,
   },
   activeOptionSafest: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
-    shadowColor: COLORS.primary,
+    backgroundColor: FallbackColors.primary,
+    borderColor: FallbackColors.primary,
+    shadowColor: FallbackColors.primary,
   },
   iconCircle: {
     width: 40,
@@ -406,7 +410,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
   },
   optionLabel: {
-    color: COLORS.textSecondary,
+    color: FallbackColors.textSecondary,
     fontSize: 14,
     fontWeight: '600',
     marginTop: SPACING.xs,
@@ -416,7 +420,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   stats: {
-    color: COLORS.textSecondary,
+    color: FallbackColors.textSecondary,
     fontSize: 12,
     marginTop: 4,
     textAlign: 'center',
@@ -461,13 +465,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   startButton: {
-    backgroundColor: COLORS.accent,
+    backgroundColor: FallbackColors.accent,
     width: '100%',
     height: 54,
     borderRadius: 27,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: COLORS.accent,
+    shadowColor: FallbackColors.accent,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 10,
@@ -497,17 +501,17 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 149, 0, 0.15)',
   },
   singleRouteTitle: {
-    color: COLORS.text,
+    color: FallbackColors.text,
     fontSize: 16,
     fontWeight: 'bold',
   },
   singleRouteDescription: {
-    color: COLORS.textSecondary,
+    color: FallbackColors.textSecondary,
     fontSize: 12,
     marginTop: 2,
   },
   singleRouteStats: {
-    color: COLORS.textSecondary,
+    color: FallbackColors.textSecondary,
     fontSize: 13,
     marginTop: 6,
     fontWeight: '600',

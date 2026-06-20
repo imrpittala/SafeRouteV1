@@ -54,13 +54,17 @@ export const usePlaceDetails = (coordinate: number[] | null): UsePlaceDetailsRes
         if (extractedPlaceForWiki) {
           try {
             const wikiUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(extractedPlaceForWiki)}`;
-            const wikiRes = await axios.get(wikiUrl);
+            const wikiRes = await axios.get(wikiUrl, {
+              headers: {
+                'User-Agent': 'SafeRouteApp/1.0 (https://saferoute.com/)'
+              }
+            });
             
             if (wikiRes.data && wikiRes.data.extract) {
               description = wikiRes.data.extract;
             }
           } catch (wikiErr) {
-            console.warn('Wikipedia API error:', wikiErr);
+            // Silently swallow Wikipedia errors (often 404s for addresses that don't exist on Wikipedia)
             // Non-fatal error, we still have the placeName
           }
         }

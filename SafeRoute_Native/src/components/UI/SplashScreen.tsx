@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View, Text, Animated, Dimensions, Easing, Platform } from 'react-native';
 import { Shield } from 'lucide-react-native';
-import { COLORS } from '../../theme/theme';
+import { COLORS as FallbackColors, useThemeColors } from '../../theme/theme';
 
 interface SplashScreenProps {
   onFinish: () => void;
@@ -10,6 +10,7 @@ interface SplashScreenProps {
 const { width, height } = Dimensions.get('window');
 
 export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
+  const COLORS = useThemeColors();
   const [statusText, setStatusText] = useState('CONNECTING TO SAFETY CHANNELS...');
   
   // Animation drivers

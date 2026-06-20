@@ -1,4 +1,4 @@
-package com.anonymous.SafeRoute
+package com.saferoute.app
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build

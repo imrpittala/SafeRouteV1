@@ -32,7 +32,7 @@ export const useLocationTelemetry = (isNavigating: boolean, userId: string) => {
     };
 
     ws.onerror = (err) => {
-      console.error('Telemetry WebSocket error:', err);
+      // Silently catch telemetry connection errors to prevent red screen in app
     };
 
     ws.onclose = () => {

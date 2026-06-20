@@ -1,12 +1,13 @@
 import React from 'react';
 import { StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { AlertCircle } from 'lucide-react-native';
-import { COLORS } from '../../theme/theme';
+import { COLORS as FallbackColors, useThemeColors } from '../../theme/theme';
 import { useStore } from '../../store/useStore';
 
 const BACKEND_WS = process.env.EXPO_PUBLIC_BACKEND_WS || 'ws://20.40.61.11:8000/ws/sos';
 
 export const SOSButton = () => {
+  const COLORS = useThemeColors();
   const { userLocation, destination, isNavigating } = useStore();
   const [isSending, setIsSending] = React.useState(false);
 
@@ -76,13 +77,13 @@ const styles = StyleSheet.create({
   button: {
     position: 'absolute',
     right: 20,
-    backgroundColor: COLORS.danger,
+    backgroundColor: FallbackColors.danger,
     width: 50,
     height: 50,
     borderRadius: 25,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: COLORS.danger,
+    shadowColor: FallbackColors.danger,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.5,
     shadowRadius: 10,
