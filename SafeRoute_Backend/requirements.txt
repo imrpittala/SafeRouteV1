@@ -15,3 +15,6 @@ osmnx
 networkx
 redis
 asyncpg
+sqlalchemy
+geoalchemy2
+firebase-admin
