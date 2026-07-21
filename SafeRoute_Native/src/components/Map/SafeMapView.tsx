@@ -14,6 +14,8 @@ import { DestinationSheet } from './DestinationSheet';
 import { Sidebar } from '../UI/Sidebar';
 import { SettingsModal } from '../UI/SettingsModal';
 import { useHazardStore } from '../../store/useHazardStore';
+import { apiClient } from '../../api/client';
+import { decodeValhallaShape } from '../../utils/polyline';
 
 const USE_MOCK = false;
 
@@ -185,20 +187,28 @@ export const SafeMapView = () => {
     }
 
     try {
-      const res = await axios.post(`${BACKEND_URL}/api/routes/valhalla`, {
-        user_lat: startLoc[1],
-        user_lng: startLoc[0],
-        dest_lat: destination[1],
-        dest_lng: destination[0]
+      const res = await apiClient.post('/route/safe', {
+        origin: [startLoc[0], startLoc[1]], // [lon, lat]
+        destination: [destination[0], destination[1]], // [lon, lat]
+        mode: 'auto'
       });
       
-      if (res.data.error) return;
+      const trip = res.data?.route?.trip;
+      if (!trip || !trip.legs || trip.legs.length === 0) {
+        throw new Error("No route found");
+      }
 
-      setRoutes({ fastest: res.data.fastest_route, safest: res.data.safest_route });
-      setRouteBlocked(res.data.route_blocked || false);
-      
-      cameraRef.current?.fitBounds(startLoc, destination, [50, 50, 50, 50], 1000);
+      // Valhalla polyline6 shape is located here
+      const shapeString = trip.legs[0].shape;
+      const decodedShape = decodeValhallaShape(shapeString, trip.summary);
+
+      if (decodedShape) {
+        setRoutes({ safest: decodedShape }); // We only have one dynamic route for now
+        setRouteBlocked(false);
+        cameraRef.current?.fitBounds(startLoc, destination, [50, 50, 50, 50], 1000);
+      }
     } catch (error: any) {
+      console.warn("Routing error", error);
       if (error.response && error.response.status === 400) {
         Alert.alert('Routing Error', 'No suitable roads found near this location.');
       } else {
@@ -548,8 +558,8 @@ export const SafeMapView = () => {
   };
 
   const getETA = (routeData: any) => {
-    if (!routeData?.properties?.weight) return '';
-    return `${Math.round(routeData.properties.weight / 60)} min`;
+    if (!routeData?.properties?.time) return '';
+    return `${Math.round(routeData.properties.time / 60)} min`;
   };
 
   const fastestMid = getMidpoint(routes?.fastest);
