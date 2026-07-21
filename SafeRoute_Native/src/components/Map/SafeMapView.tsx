@@ -13,6 +13,7 @@ import { useLocationTelemetry } from '../../hooks/useLocationTelemetry';
 import { DestinationSheet } from './DestinationSheet';
 import { Sidebar } from '../UI/Sidebar';
 import { SettingsModal } from '../UI/SettingsModal';
+import { useHazardStore } from '../../store/useHazardStore';
 
 const USE_MOCK = false;
 
@@ -38,6 +39,19 @@ export const SafeMapView = () => {
     isNavigating, savedPlaces, sosAlerts, addSosAlert, removeSosAlert, setRouteBlocked, isAuthSheetVisible,
     user, setAuthSheetVisible
   } = useStore();
+
+  const { hazards, fetchNearbyHazards } = useHazardStore();
+
+  const handleCameraChanged = (e: any) => {
+    // Mapbox provides exact bounds and center natively
+    if (e?.properties?.bounds && e?.properties?.center) {
+      const bounds = {
+        ne: e.properties.bounds.ne,
+        sw: e.properties.bounds.sw,
+      };
+      fetchNearbyHazards(bounds, e.properties.center);
+    }
+  };
   const cameraRef = useRef<Camera>(null);
 
   // UI State Machine
@@ -550,6 +564,7 @@ export const SafeMapView = () => {
         logoEnabled={false}
         attributionEnabled={false}
         scaleBarEnabled={false}
+        onCameraChanged={handleCameraChanged}
       >
         <Camera
           ref={cameraRef}
@@ -561,6 +576,36 @@ export const SafeMapView = () => {
           followUserLocation={isNavigating ? true : undefined}
           followUserMode={isNavigating ? "course" as any : undefined}
         />
+
+        {/* Hazard Markers */}
+        {hazards.map((hazard) => {
+          let pinColor = '#6B7280'; // Default gray
+          if (hazard.hazard_type === 'CRIME') pinColor = '#EF4444';
+          else if (hazard.hazard_type === 'UNLIT') pinColor = '#F59E0B';
+          else if (hazard.hazard_type === 'ROADBLOCK') pinColor = '#3B82F6';
+
+          return (
+            <PointAnnotation
+              key={`hazard-${hazard.id}`}
+              id={`hazard-${hazard.id}`}
+              coordinate={hazard.coordinates} // Mapbox natively uses [lon, lat]!
+            >
+              <View style={{
+                width: 20,
+                height: 20,
+                borderRadius: 10,
+                backgroundColor: pinColor,
+                borderWidth: 2,
+                borderColor: '#FFFFFF',
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.3,
+                shadowRadius: 3,
+                elevation: 5
+              }} />
+            </PointAnnotation>
+          );
+        })}
 
         {routes?.fastest && (
           <ShapeSource id="fastestSource" shape={routes.fastest} tolerance={10}>

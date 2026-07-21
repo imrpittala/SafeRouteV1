@@ -27,6 +27,7 @@
     "expo-location": "~55.1.10",
     "expo-splash-screen": "~55.0.19",
     "expo-status-bar": "~55.0.5",
+    "lodash.debounce": "^4.0.8",
     "lucide-react-native": "^1.14.0",
     "react": "19.2.0",
     "react-dom": "19.2.0",
@@ -41,6 +42,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.26.0",
+    "@types/lodash.debounce": "^4.0.9",
     "@types/mapbox__polyline": "^1.0.5",
     "@types/react": "~19.2.10",
     "typescript": "~5.9.2"

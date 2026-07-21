@@ -10,7 +10,7 @@ services:
       POSTGRES_PASSWORD: pass
       POSTGRES_DB: saferoute
     ports:
-      - "5432:5432"
+      - "15432:5432"
     volumes:
       - postgis_data:/var/lib/postgresql/data
     healthcheck:
@@ -18,6 +18,15 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
+  valhalla:
+    image: ghcr.io/gis-ops/docker-valhalla/valhalla:latest
+    container_name: saferoute_valhalla
+    entrypoint: ["tail", "-f", "/dev/null"]
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./custom_data:/custom_files
 
 volumes:
   postgis_data:

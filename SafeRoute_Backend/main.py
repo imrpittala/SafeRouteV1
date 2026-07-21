@@ -140,7 +140,10 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="SafeRoute Backend", description="Real-time SOS alerting for SafeRoute.", lifespan=lifespan)
 
 from src.routers.hazards import router as hazards_router
+from src.routers.routing import router as routing_router
+
 app.include_router(hazards_router)
+app.include_router(routing_router)
 
 app.add_middleware(
     CORSMiddleware,
